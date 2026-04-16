@@ -59,7 +59,8 @@ public record DokumentErstellenDto(
     DateTime? SichtbarBis,
     DateTime? Pruefterm,
     string? InhaltHtml,
-    FreigabeModus FreigabeModus);
+    FreigabeModus FreigabeModus,
+    IReadOnlyList<int>? VerlinkteDokumentIds = null);
 
 public record DokumentBearbeitenDto(
     string Titel,
@@ -75,7 +76,10 @@ public record DokumentBearbeitenDto(
     FreigabeModus FreigabeModus,
     FreigabeReihenfolge FreigabeReihenfolge,
     bool Druckverbot,
-    bool OeffentlichLesbar);
+    bool OeffentlichLesbar,
+    IReadOnlyList<int>? VerlinkteDokumentIds = null);
+
+public record DokumentVorschlagDto(int Id, string Titel, string Kapitel);
 
 public record DokumentFilterDto(
     string? Suchbegriff = null,

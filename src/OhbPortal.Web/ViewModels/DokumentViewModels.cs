@@ -55,4 +55,7 @@ public class DokumentBearbeitenViewModel
     public bool OeffentlichLesbar { get; set; } = true;
 
     public string? AenderungsHinweis { get; set; }
+
+    [Display(Name = "Mitgeltende Dokumente")]
+    public List<int> VerlinkteDokumentIds { get; set; } = new();
 }

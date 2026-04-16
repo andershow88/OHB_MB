@@ -102,7 +102,7 @@ public class DokumenteController : BaseController
         var id = await _svc.ErstellenAsync(new DokumentErstellenDto(
             vm.Titel, vm.Kurzbeschreibung, vm.KapitelId, vm.VerantwortlicherBereichId,
             vm.Kategorie, vm.Tags, vm.SichtbarAb, vm.SichtbarBis, vm.Pruefterm,
-            vm.InhaltHtml, vm.FreigabeModus), AktuellerBenutzerId);
+            vm.InhaltHtml, vm.FreigabeModus, vm.VerlinkteDokumentIds), AktuellerBenutzerId);
         TempData["Erfolg"] = "Dokument angelegt.";
         return RedirectToAction(nameof(Details), new { id });
     }
@@ -114,6 +114,9 @@ public class DokumenteController : BaseController
         var d = await _svc.GetDetailAsync(id);
         if (d is null) return NotFound();
         await FuelleDropdowns(d.KapitelId);
+        ViewBag.BestehendeVerlinkungen = d.Verlinkungen
+            .Select(l => new { l.ZielDokumentId, l.ZielTitel }).ToList();
+
         return View(new DokumentBearbeitenViewModel
         {
             Id = d.Id,
@@ -130,7 +133,8 @@ public class DokumenteController : BaseController
             FreigabeModus = d.FreigabeModus,
             FreigabeReihenfolge = d.FreigabeReihenfolge,
             Druckverbot = d.Druckverbot,
-            OeffentlichLesbar = d.OeffentlichLesbar
+            OeffentlichLesbar = d.OeffentlichLesbar,
+            VerlinkteDokumentIds = d.Verlinkungen.Select(l => l.ZielDokumentId).ToList()
         });
     }
 
@@ -147,7 +151,7 @@ public class DokumenteController : BaseController
             vm.Titel, vm.Kurzbeschreibung, vm.KapitelId, vm.VerantwortlicherBereichId,
             vm.Kategorie, vm.Tags, vm.SichtbarAb, vm.SichtbarBis, vm.Pruefterm,
             vm.InhaltHtml, vm.FreigabeModus, vm.FreigabeReihenfolge,
-            vm.Druckverbot, vm.OeffentlichLesbar),
+            vm.Druckverbot, vm.OeffentlichLesbar, vm.VerlinkteDokumentIds),
             AktuellerBenutzerId, vm.AenderungsHinweis);
         TempData["Erfolg"] = "Dokument gespeichert.";
         return RedirectToAction(nameof(Details), new { id });
@@ -184,6 +188,23 @@ public class DokumenteController : BaseController
         await _kn.BestaetigenAsync(kenntnisnahmeId, AktuellerBenutzerId);
         TempData["Erfolg"] = "Kenntnisnahme bestätigt.";
         return RedirectToAction(nameof(Details), new { id = dokumentId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Vorschlaege(string q, int? excludeId)
+    {
+        var term = q?.Trim() ?? "";
+        if (term.Length < 2) return Json(Array.Empty<object>());
+        var treffer = await _db.Dokumente
+            .Include(d => d.Kapitel)
+            .Where(d => !d.Geloescht && !d.Archiviert
+                     && (excludeId == null || d.Id != excludeId)
+                     && d.Titel.Contains(term))
+            .OrderBy(d => d.Titel)
+            .Take(10)
+            .Select(d => new DokumentVorschlagDto(d.Id, d.Titel, d.Kapitel.Titel))
+            .ToListAsync();
+        return Json(treffer);
     }
 
     [HttpPost, ValidateAntiForgeryToken]

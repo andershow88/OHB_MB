@@ -133,8 +133,28 @@ public class DokumentService : IDokumentService
         });
         await _db.SaveChangesAsync();
 
+        // Verlinkungen synchronisieren
+        if (dto.VerlinkteDokumentIds is not null)
+            await SyncVerlinkungenAsync(d.Id, dto.VerlinkteDokumentIds);
+
         await _audit.LogAsync(AuditTyp.DokumentErstellt, benutzerId, dokumentId: d.Id, beschreibung: d.Titel);
         return d.Id;
+    }
+
+    private async Task SyncVerlinkungenAsync(int dokumentId, IReadOnlyList<int> neueIds)
+    {
+        var bereinigt = neueIds.Where(x => x != dokumentId).Distinct().ToList();
+        var alte = await _db.DokumentLinks
+            .Where(l => l.DokumentId == dokumentId).ToListAsync();
+        foreach (var l in alte.Where(x => !bereinigt.Contains(x.ZielDokumentId)))
+            _db.DokumentLinks.Remove(l);
+        foreach (var neueId in bereinigt.Where(x => !alte.Any(l => l.ZielDokumentId == x)))
+        {
+            var ziel = await _db.Dokumente.FindAsync(neueId);
+            if (ziel is not null && !ziel.Geloescht)
+                _db.DokumentLinks.Add(new DokumentLink { DokumentId = dokumentId, ZielDokumentId = neueId });
+        }
+        await _db.SaveChangesAsync();
     }
 
     public async Task AktualisierenAsync(int id, DokumentBearbeitenDto dto, int benutzerId, string? aenderungshinweis = null)
@@ -172,6 +192,10 @@ public class DokumentService : IDokumentService
             AenderungsHinweis = aenderungshinweis
         });
         await _db.SaveChangesAsync();
+
+        if (dto.VerlinkteDokumentIds is not null)
+            await SyncVerlinkungenAsync(id, dto.VerlinkteDokumentIds);
+
         await _audit.LogAsync(AuditTyp.DokumentBearbeitet, benutzerId, dokumentId: id,
             beschreibung: aenderungshinweis);
         await _audit.LogAsync(AuditTyp.VersionAngelegt, benutzerId, dokumentId: id,

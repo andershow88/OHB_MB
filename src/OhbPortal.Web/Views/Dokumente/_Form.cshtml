@@ -149,6 +149,27 @@
             </div>
         </div>
 
+        <div class="mc-card mt-3">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-link-45deg"></i> Mitgeltende Dokumente</h2>
+            </div>
+            <div class="mc-card-body">
+                <div style="position:relative;">
+                    <input id="verlinkungSuche" type="text" class="form-control form-control-sm"
+                           placeholder="Dokument-Titel suchen (ab 2 Zeichen) …" autocomplete="off" />
+                    <div id="verlinkungDropdown"
+                         style="display:none; position:absolute; top:calc(100% + 2px); left:0; right:0; z-index:40;
+                                background:var(--mc-bg-card); border:1px solid var(--mc-border);
+                                border-radius:var(--mc-radius-sm); box-shadow:var(--mc-shadow); max-height:280px; overflow-y:auto;"></div>
+                </div>
+                <div id="verlinkungChips" class="mt-2 d-flex flex-wrap gap-1"></div>
+                <div class="small text-muted mt-2">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Ausgewählte Dokumente erscheinen als Verweise in der Detail-Ansicht.
+                </div>
+            </div>
+        </div>
+
         @if (Model.Id.HasValue)
         {
             <div class="mc-card mt-3">
@@ -246,5 +267,86 @@
                 hidden.value = quill.root.innerHTML;
             });
         }
+
+        // ── Mitgeltende Dokumente: Autocomplete + Chips ─────────────────
+        const existing = @Html.Raw(
+            System.Text.Json.JsonSerializer.Serialize(
+                (ViewBag.BestehendeVerlinkungen as System.Collections.IEnumerable)?
+                    .Cast<dynamic>()
+                    .Select(v => new { id = (int)v.ZielDokumentId, titel = (string)v.ZielTitel })
+                ?? Enumerable.Empty<object>()));
+
+        const verlinkungen = new Map();
+        existing.forEach(v => verlinkungen.set(v.id, v.titel));
+
+        const sucheInput = document.getElementById('verlinkungSuche');
+        const dropdown = document.getElementById('verlinkungDropdown');
+        const chipsContainer = document.getElementById('verlinkungChips');
+
+        function renderChips() {
+            chipsContainer.innerHTML = '';
+            verlinkungen.forEach((titel, id) => {
+                const chip = document.createElement('span');
+                chip.className = 'mc-badge badge-primary d-inline-flex align-items-center';
+                chip.style.cssText = 'gap:.4rem; font-size:.72rem;';
+                chip.innerHTML = `
+                    <input type="hidden" name="VerlinkteDokumentIds" value="${id}" />
+                    <i class="bi bi-link-45deg"></i>
+                    <span>${titel.replace(/</g,'&lt;')}</span>
+                    <button type="button" class="btn-link p-0 border-0"
+                            style="background:none; color:inherit; line-height:1;"
+                            onclick="window.verlinkungEntfernen(${id})">
+                        <i class="bi bi-x-circle"></i>
+                    </button>`;
+                chipsContainer.appendChild(chip);
+            });
+        }
+        window.verlinkungEntfernen = function(id) {
+            verlinkungen.delete(id);
+            renderChips();
+        };
+        renderChips();
+
+        let debounceTimer = null;
+        sucheInput.addEventListener('input', () => {
+            const q = sucheInput.value.trim();
+            clearTimeout(debounceTimer);
+            if (q.length < 2) { dropdown.style.display = 'none'; return; }
+            debounceTimer = setTimeout(async () => {
+                const excl = dokumentId != null ? `&excludeId=${dokumentId}` : '';
+                const resp = await fetch(`/Dokumente/Vorschlaege?q=${encodeURIComponent(q)}${excl}`);
+                const data = await resp.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+                dropdown.innerHTML = data
+                    .filter(d => !verlinkungen.has(d.id))
+                    .map(d => `
+                        <div class="verlinkung-vorschlag"
+                             data-id="${d.id}" data-titel="${d.titel.replace(/"/g,'&quot;')}"
+                             style="padding:.5rem .75rem; cursor:pointer; border-bottom:1px solid var(--mc-border);">
+                            <div class="fw-semibold" style="font-size:.85rem;">${d.titel.replace(/</g,'&lt;')}</div>
+                            <div class="small text-muted">${(d.kapitel || '').replace(/</g,'&lt;')}</div>
+                        </div>`).join('') || '<div class="small text-muted" style="padding:.6rem .75rem;">Alle Treffer sind bereits verlinkt.</div>';
+                dropdown.style.display = 'block';
+                dropdown.querySelectorAll('.verlinkung-vorschlag').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const id = parseInt(el.getAttribute('data-id'));
+                        const titel = el.getAttribute('data-titel');
+                        verlinkungen.set(id, titel);
+                        sucheInput.value = '';
+                        dropdown.style.display = 'none';
+                        renderChips();
+                    });
+                    el.addEventListener('mouseenter', () => el.style.background = 'var(--mc-bg)');
+                    el.addEventListener('mouseleave', () => el.style.background = 'transparent');
+                });
+            }, 220);
+        });
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#verlinkungSuche') && !e.target.closest('#verlinkungDropdown'))
+                dropdown.style.display = 'none';
+        });
     })();
 </script>
