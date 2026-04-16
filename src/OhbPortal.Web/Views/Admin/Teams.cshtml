@@ -1,0 +1,94 @@
+@model IEnumerable<OhbPortal.Application.DTOs.TeamListeDto>
+@{
+    ViewData["Title"] = "Teams verwalten";
+}
+
+<div class="mc-page-header">
+    <div>
+        <h1 class="mc-page-title"><i class="bi bi-diagram-2 me-2"></i>Teams verwalten</h1>
+        <p class="mc-page-subtitle">@Model.Count() Teams insgesamt</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Index" class="btn-mc-ghost"><i class="bi bi-arrow-left"></i> Übersicht</a>
+        <button class="btn-mc-primary" data-bs-toggle="modal" data-bs-target="#teamNeuModal">
+            <i class="bi bi-plus-circle"></i> Neues Team
+        </button>
+    </div>
+</div>
+
+<div class="mc-card">
+    <div style="padding:0;">
+        @if (!Model.Any())
+        {
+            <p class="text-muted text-center py-4 mb-0">Keine Teams.</p>
+        }
+        else
+        {
+            <div class="mc-table-wrapper">
+                <table class="mc-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Beschreibung</th>
+                            <th>Mitglieder</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in Model)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@t.Name</td>
+                                <td class="small text-muted">@(t.Beschreibung ?? "–")</td>
+                                <td><span class="mc-badge badge-secondary">@t.AnzahlMitglieder</span></td>
+                                <td>
+                                    <span class="mc-badge @(t.IstAktiv ? "badge-success" : "badge-secondary")">
+                                        @(t.IstAktiv ? "aktiv" : "deaktiviert")
+                                    </span>
+                                </td>
+                                <td>
+                                    <a asp-action="TeamBearbeiten" asp-route-id="@t.Id" class="btn-mc-ghost" style="font-size:.78rem; padding:.3rem .7rem;">
+                                        <i class="bi bi-pencil"></i> Bearbeiten
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="modal fade" id="teamNeuModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="TeamAnlegen" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Neues Team</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Teamname</label>
+                        <input name="Name" class="form-control" required maxlength="150" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Beschreibung (optional)</label>
+                        <textarea name="Beschreibung" class="form-control" rows="2" maxlength="500"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input name="IstAktiv" class="form-check-input" type="checkbox" value="true" id="neuAktiv" checked />
+                        <label class="form-check-label" for="neuAktiv">Aktiv</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-mc-ghost" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn-mc-primary"><i class="bi bi-check2 me-1"></i>Anlegen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

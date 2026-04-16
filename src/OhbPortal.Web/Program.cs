@@ -32,6 +32,7 @@ builder.Services.AddScoped<IFreigabeService, FreigabeService>();
 builder.Services.AddScoped<IKenntnisnahmeService, KenntnisnahmeService>();
 builder.Services.AddScoped<IAnhangService, AnhangService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 
 builder.Services.AddHttpClient();

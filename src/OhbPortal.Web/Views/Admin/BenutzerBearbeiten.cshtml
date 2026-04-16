@@ -1,0 +1,157 @@
+@model OhbPortal.Application.DTOs.BenutzerDetailDto
+@{
+    ViewData["Title"] = $"Benutzer: {Model.Anzeigename}";
+}
+
+<div class="mc-page-header">
+    <div>
+        <div style="font-size:0.82rem; color:var(--mc-text-muted); margin-bottom:0.4rem;">
+            <a asp-action="Benutzer" style="color:var(--mc-primary);">Benutzer</a>
+            <span style="margin:0 0.4rem;">/</span>
+            <span>@Model.Anzeigename</span>
+        </div>
+        <h1 class="mc-page-title" style="font-size:1.25rem;">
+            <i class="bi bi-person-circle me-2"></i>@Model.Anzeigename
+            <span class="mc-badge badge-primary ms-2">@Model.Rolle</span>
+            <span class="mc-badge @(Model.IstAktiv ? "badge-success" : "badge-secondary") ms-1">
+                @(Model.IstAktiv ? "aktiv" : "deaktiviert")
+            </span>
+        </h1>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Benutzer" class="btn-mc-ghost"><i class="bi bi-arrow-left"></i> Zurück</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="mc-card">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-person-lines-fill"></i> Stammdaten</h2>
+            </div>
+            <div class="mc-card-body">
+                <form asp-action="BenutzerBearbeiten" asp-route-id="@Model.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">Benutzername (Login)</label>
+                        <input class="form-control" value="@Model.Benutzername" disabled />
+                        <div class="small text-muted">Kann nachträglich nicht geändert werden.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Anzeigename</label>
+                        <input name="Anzeigename" class="form-control" required maxlength="200" value="@Model.Anzeigename" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">E-Mail</label>
+                        <input name="EMail" type="email" class="form-control" maxlength="200" value="@Model.EMail" />
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Rolle</label>
+                            <select name="Rolle" class="form-select">
+                                @foreach (Rolle r in Enum.GetValues<Rolle>())
+                                {
+                                    if (Model.Rolle == r) { <option value="@((int)r)" selected>@r</option> }
+                                    else { <option value="@((int)r)">@r</option> }
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check">
+                                <input name="IstAktiv" class="form-check-input" type="checkbox" value="true" id="istAktiv" @(Model.IstAktiv ? "checked" : "") />
+                                <label class="form-check-label" for="istAktiv">Aktiv (Anmeldung erlaubt)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn-mc-primary"><i class="bi bi-check2 me-1"></i>Speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="mc-card mt-3">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-key"></i> Passwort zurücksetzen</h2>
+            </div>
+            <div class="mc-card-body">
+                <form asp-action="PasswortZuruecksetzen" asp-route-id="@Model.Id" method="post" class="row g-2 align-items-end">
+                    @Html.AntiForgeryToken()
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold small">Neues Passwort</label>
+                        <input name="neuesPasswort" type="text" class="form-control form-control-sm" minlength="6" required autocomplete="new-password" />
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn-mc-ghost w-100" style="font-size:.82rem; padding:.35rem .5rem; border-color:var(--mc-gold); color:var(--mc-gold);"
+                                onclick="return confirm('Passwort wirklich zurücksetzen?');">
+                            <i class="bi bi-arrow-counterclockwise"></i> Zurücksetzen
+                        </button>
+                    </div>
+                </form>
+                <div class="small text-muted mt-2">
+                    <i class="bi bi-info-circle me-1"></i>Das neue Passwort wird sofort gültig. Teilen Sie es dem Benutzer über einen sicheren Kanal mit.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="mc-card">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-diagram-2"></i> Team-Mitgliedschaften</h2>
+            </div>
+            <div class="mc-card-body">
+                @if (!Model.Teams.Any())
+                {
+                    <p class="text-muted small mb-0">Keine Teams zugewiesen.</p>
+                }
+                else
+                {
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var t in Model.Teams)
+                        {
+                            <li class="d-flex align-items-center justify-content-between py-1 border-bottom" style="border-color:var(--mc-border)!important;">
+                                <span><i class="bi bi-diagram-2 me-1 text-muted"></i>@t.Name</span>
+                                <a asp-action="TeamBearbeiten" asp-route-id="@t.Id" class="btn-mc-ghost" style="font-size:.7rem; padding:.1rem .4rem;">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                }
+                <div class="small text-muted mt-2">
+                    <i class="bi bi-info-circle me-1"></i>Mitgliedschaften werden im jeweiligen Team gepflegt.
+                </div>
+            </div>
+        </div>
+
+        <div class="mc-card mt-3">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-shield-exclamation"></i> Konto-Status</h2>
+            </div>
+            <div class="mc-card-body">
+                @if (Model.IstAktiv)
+                {
+                    <form asp-action="BenutzerAktivUmschalten" asp-route-id="@Model.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="aktiv" value="false" />
+                        <button type="submit" class="btn-mc-ghost w-100" style="color:var(--mc-danger);"
+                                onclick="return confirm('Benutzer deaktivieren? Er kann sich nicht mehr anmelden.');">
+                            <i class="bi bi-slash-circle"></i> Benutzer deaktivieren
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <form asp-action="BenutzerAktivUmschalten" asp-route-id="@Model.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="aktiv" value="true" />
+                        <button type="submit" class="btn-mc-primary w-100">
+                            <i class="bi bi-check2-circle"></i> Benutzer aktivieren
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</div>

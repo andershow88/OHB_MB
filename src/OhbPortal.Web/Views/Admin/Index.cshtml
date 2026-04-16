@@ -1,0 +1,87 @@
+@model OhbPortal.Application.DTOs.AdminDashboardDto
+@{
+    ViewData["Title"] = "Administration";
+}
+
+<div class="mc-page-header">
+    <div>
+        <h1 class="mc-page-title"><i class="bi bi-shield-lock me-2"></i>Administration</h1>
+        <p class="mc-page-subtitle">Benutzer, Teams und Systemkonfiguration</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Benutzer" class="btn-mc-primary">
+            <i class="bi bi-people"></i> Benutzer verwalten
+        </a>
+        <a asp-action="Teams" class="btn-mc-ghost">
+            <i class="bi bi-diagram-2"></i> Teams verwalten
+        </a>
+    </div>
+</div>
+
+<div class="mc-kpi-grid">
+    <div class="mc-kpi-card">
+        <div class="mc-kpi-icon blue"><i class="bi bi-people"></i></div>
+        <div class="mc-kpi-label">Benutzer</div>
+        <div class="mc-kpi-value">@Model.AnzahlBenutzer</div>
+        <div class="mc-kpi-sub">davon aktiv: @Model.AnzahlBenutzerAktiv</div>
+    </div>
+    <div class="mc-kpi-card">
+        <div class="mc-kpi-icon gold"><i class="bi bi-diagram-2"></i></div>
+        <div class="mc-kpi-label">Teams</div>
+        <div class="mc-kpi-value">@Model.AnzahlTeams</div>
+        <div class="mc-kpi-sub">davon aktiv: @Model.AnzahlTeamsAktiv</div>
+    </div>
+    <div class="mc-kpi-card">
+        <div class="mc-kpi-icon green"><i class="bi bi-file-earmark-text"></i></div>
+        <div class="mc-kpi-label">Dokumente</div>
+        <div class="mc-kpi-value">@Model.AnzahlDokumente</div>
+        <div class="mc-kpi-sub">aktiv (nicht gelöscht)</div>
+    </div>
+</div>
+
+<div class="mc-card">
+    <div class="mc-card-header">
+        <h2 class="mc-card-title"><i class="bi bi-person-plus"></i> Zuletzt angelegte Benutzer</h2>
+        <a asp-action="Benutzer" class="btn-mc-ghost"><i class="bi bi-arrow-right"></i> Alle anzeigen</a>
+    </div>
+    <div class="mc-card-body" style="padding:0;">
+        @if (!Model.ZuletztAngelegteBenutzer.Any())
+        {
+            <div class="text-center py-4" style="color:var(--mc-text-muted);">
+                <i class="bi bi-inbox" style="font-size:1.75rem;"></i>
+                <p class="mt-2 mb-0 small">Noch keine Benutzer vorhanden.</p>
+            </div>
+        }
+        else
+        {
+            <div class="mc-table-wrapper">
+                <table class="mc-table">
+                    <thead>
+                        <tr><th>Benutzername</th><th>Anzeigename</th><th>Rolle</th><th>Status</th><th>Erstellt</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in Model.ZuletztAngelegteBenutzer)
+                        {
+                            <tr>
+                                <td><code>@b.Benutzername</code></td>
+                                <td>@b.Anzeigename</td>
+                                <td><span class="mc-badge badge-primary">@b.Rolle</span></td>
+                                <td>
+                                    <span class="mc-badge @(b.IstAktiv ? "badge-success" : "badge-secondary")">
+                                        @(b.IstAktiv ? "aktiv" : "deaktiviert")
+                                    </span>
+                                </td>
+                                <td class="small text-muted">@b.ErstelltAm.ToString("dd.MM.yyyy")</td>
+                                <td>
+                                    <a asp-action="BenutzerBearbeiten" asp-route-id="@b.Id" class="btn-mc-ghost" style="font-size:.78rem; padding:.3rem .7rem;">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

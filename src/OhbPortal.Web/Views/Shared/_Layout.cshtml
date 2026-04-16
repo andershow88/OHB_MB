@@ -72,7 +72,16 @@
                     <i class="bi bi-eye"></i> <span>Meine Kenntnisnahmen</span>
                 </a>
             </li>
-            <li class="mc-nav-item" style="margin-top:.5rem; border-top:1px solid var(--mc-border); padding-top:.5rem;">
+            @if (istAdmin)
+            {
+                <li class="mc-nav-item" style="margin-top:.5rem; border-top:1px solid var(--mc-border); padding-top:.5rem;">
+                    <a asp-controller="Admin" asp-action="Index"
+                       class="mc-nav-link @(ctrl == "Admin" ? "active" : "")">
+                        <i class="bi bi-shield-lock"></i> <span>Administration</span>
+                    </a>
+                </li>
+            }
+            <li class="mc-nav-item" style="@(istAdmin ? "" : "margin-top:.5rem; border-top:1px solid var(--mc-border); padding-top:.5rem;")">
                 <a asp-controller="Dokumente" asp-action="Archiv"
                    class="mc-nav-link @(ctrl == "Dokumente" && action == "Archiv" ? "active" : "")">
                     <i class="bi bi-archive"></i> <span>Archiv</span>
