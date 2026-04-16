@@ -695,6 +695,42 @@
     .ohb-richtext .ql-align-justify { text-align:justify; }
 </style>
 
+@if (Model.Druckverbot)
+{
+    <style>
+        .ohb-druckverbot { user-select: none; -webkit-user-select: none; }
+        @@media print {
+            body { visibility: hidden !important; }
+            body::before {
+                content: "Druckverbot – dieses Dokument darf nicht gedruckt werden.";
+                visibility: visible;
+                display: block;
+                position: fixed;
+                inset: 0;
+                padding: 6rem 2rem;
+                text-align: center;
+                font-size: 1.6rem;
+                font-weight: 700;
+                color: #b00020;
+                background: #fff;
+                border: 4px solid #b00020;
+                z-index: 99999;
+            }
+            body * { visibility: hidden !important; }
+        }
+    </style>
+    <script>
+        window.addEventListener('beforeprint', function () {
+            alert('Dieses Dokument unterliegt einem Druckverbot. Bitte beachten Sie die Vorgaben der Richtlinie.');
+        });
+        document.addEventListener('DOMContentLoaded', function () {
+            document.body.classList.add('ohb-druckverbot');
+            var rt = document.querySelector('.ohb-richtext');
+            if (rt) rt.addEventListener('contextmenu', e => e.preventDefault());
+        });
+    </script>
+}
+
 @functions {
     static string StatusBadgeClass(DokumentStatus s) => s switch
     {
