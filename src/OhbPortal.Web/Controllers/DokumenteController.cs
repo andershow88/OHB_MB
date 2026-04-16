@@ -38,7 +38,8 @@ public class DokumenteController : BaseController
     public async Task<IActionResult> Index(string? q, int? kapitelId, DokumentStatus? status,
         string? kategorie, bool? pruefUeberfaellig)
     {
-        var filter = new DokumentFilterDto(q, kapitelId, status, kategorie, pruefUeberfaellig);
+        var filter = new DokumentFilterDto(q, kapitelId, status, kategorie, pruefUeberfaellig,
+            NurAktuellSichtbare: !IstEditor && !IstApprover);
         ViewBag.Filter = filter;
         await FuelleDropdowns(kapitelId);
         var liste = await _svc.GetAlleAsync(filter);
@@ -65,6 +66,15 @@ public class DokumenteController : BaseController
     {
         var d = await _svc.GetDetailAsync(id);
         if (d is null) return NotFound();
+
+        // Sichtbar-ab/bis durchsetzen für Nicht-Editoren und Nicht-Approver
+        if (!IstEditor && !IstApprover)
+        {
+            var jetzt = DateTime.UtcNow;
+            var nichtSichtbar = (d.SichtbarAb.HasValue && d.SichtbarAb.Value > jetzt)
+                             || (d.SichtbarBis.HasValue && d.SichtbarBis.Value < jetzt);
+            if (nichtSichtbar) return NotFound();
+        }
         ViewBag.Versionen = (await _svc.GetVersionenAsync(id)).ToList();
         ViewBag.Audit = (await _svc.GetAuditAsync(id)).ToList();
         ViewBag.Freigaben = (await _freigabe.GetGruppenAsync(id)).ToList();

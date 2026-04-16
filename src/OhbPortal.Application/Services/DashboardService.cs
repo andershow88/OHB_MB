@@ -24,7 +24,9 @@ public class DashboardService : IDashboardService
         _dokumente = dokumente;
     }
 
-    public async Task<DashboardDto> GetAsync(int benutzerId)
+    public Task<DashboardDto> GetAsync(int benutzerId) => GetAsync(benutzerId, nurAktuellSichtbare: false);
+
+    public async Task<DashboardDto> GetAsync(int benutzerId, bool nurAktuellSichtbare)
     {
         var total = await _db.Dokumente.CountAsync(d => !d.Geloescht);
         var entw = await _db.Dokumente.CountAsync(d => !d.Geloescht && d.Status == DokumentStatus.Entwurf);
@@ -35,7 +37,8 @@ public class DashboardService : IDashboardService
         var offeneFreigaben = (await _freigaben.GetMeineOffenenAsync(benutzerId)).Count();
         var offeneKenntnisnahmen = (await _kenntnisnahmen.GetMeineOffenenAsync(benutzerId)).Count();
 
-        var letzte = (await _dokumente.GetAlleAsync(new DokumentFilterDto())).Take(10).ToList();
+        var letzte = (await _dokumente.GetAlleAsync(
+            new DokumentFilterDto(NurAktuellSichtbare: nurAktuellSichtbare))).Take(10).ToList();
 
         return new DashboardDto(total, entw, frei, inFrei, offeneFreigaben, offeneKenntnisnahmen,
             ueberfaellig, letzte);

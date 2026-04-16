@@ -12,7 +12,8 @@ public class DashboardController : BaseController
 
     public async Task<IActionResult> Index()
     {
-        var dto = await _svc.GetAsync(AktuellerBenutzerId);
+        var dto = await _svc.GetAsync(AktuellerBenutzerId,
+            nurAktuellSichtbare: !IstEditor && !IstApprover);
         return View(dto);
     }
 }

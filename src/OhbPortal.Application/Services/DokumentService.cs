@@ -51,6 +51,14 @@ public class DokumentService : IDokumentService
         if (filter.NurMitPruefterminAbgelaufen == true)
             query = query.Where(d => d.Pruefterm.HasValue && d.Pruefterm.Value < DateTime.UtcNow);
 
+        if (filter.NurAktuellSichtbare)
+        {
+            var jetzt = DateTime.UtcNow;
+            query = query.Where(d =>
+                (!d.SichtbarAb.HasValue || d.SichtbarAb.Value <= jetzt) &&
+                (!d.SichtbarBis.HasValue || d.SichtbarBis.Value >= jetzt));
+        }
+
         return await query
             .OrderByDescending(d => d.GeaendertAm)
             .Take(300)

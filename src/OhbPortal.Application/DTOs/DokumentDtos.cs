@@ -88,7 +88,8 @@ public record DokumentFilterDto(
     string? Kategorie = null,
     bool? NurMitPruefterminAbgelaufen = null,
     bool IncludeArchiviert = false,
-    bool NurGeloescht = false);
+    bool NurGeloescht = false,
+    bool NurAktuellSichtbare = false);
 
 public record VersionDto(
     int Id,

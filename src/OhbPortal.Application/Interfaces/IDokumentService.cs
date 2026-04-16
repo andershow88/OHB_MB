@@ -73,4 +73,5 @@ public interface IAuditService
 public interface IDashboardService
 {
     Task<DashboardDto> GetAsync(int benutzerId);
+    Task<DashboardDto> GetAsync(int benutzerId, bool nurAktuellSichtbare);
 }
