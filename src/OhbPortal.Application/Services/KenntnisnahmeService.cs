@@ -17,8 +17,13 @@ public class KenntnisnahmeService : IKenntnisnahmeService
         _audit = audit;
     }
 
-    public async Task ZuweisenBenutzerAsync(int dokumentId, int benutzerId, DateTime? faelligkeit)
+    public async Task ZuweisenBenutzerAsync(int dokumentId, int benutzerId, DateTime? faelligkeit, int handelnderBenutzerId)
     {
+        var vorhanden = await _db.Kenntnisnahmen
+            .AnyAsync(k => k.DokumentId == dokumentId && k.BenutzerId == benutzerId);
+        if (vorhanden)
+            throw new InvalidOperationException("Benutzer ist bereits zugewiesen.");
+
         _db.Kenntnisnahmen.Add(new Kenntnisnahme
         {
             DokumentId = dokumentId,
@@ -26,11 +31,17 @@ public class KenntnisnahmeService : IKenntnisnahmeService
             Faelligkeit = faelligkeit
         });
         await _db.SaveChangesAsync();
-        await _audit.LogAsync(AuditTyp.KenntnisnahmeZugewiesen, benutzerId, dokumentId: dokumentId);
+        await _audit.LogAsync(AuditTyp.KenntnisnahmeZugewiesen, handelnderBenutzerId, dokumentId: dokumentId,
+            beschreibung: $"Benutzer {benutzerId} zur Kenntnisnahme zugewiesen");
     }
 
-    public async Task ZuweisenTeamAsync(int dokumentId, int teamId, DateTime? faelligkeit)
+    public async Task ZuweisenTeamAsync(int dokumentId, int teamId, DateTime? faelligkeit, int handelnderBenutzerId)
     {
+        var vorhanden = await _db.Kenntnisnahmen
+            .AnyAsync(k => k.DokumentId == dokumentId && k.TeamId == teamId);
+        if (vorhanden)
+            throw new InvalidOperationException("Team ist bereits zugewiesen.");
+
         _db.Kenntnisnahmen.Add(new Kenntnisnahme
         {
             DokumentId = dokumentId,
@@ -38,6 +49,18 @@ public class KenntnisnahmeService : IKenntnisnahmeService
             Faelligkeit = faelligkeit
         });
         await _db.SaveChangesAsync();
+        await _audit.LogAsync(AuditTyp.KenntnisnahmeZugewiesen, handelnderBenutzerId, dokumentId: dokumentId,
+            beschreibung: $"Team {teamId} zur Kenntnisnahme zugewiesen");
+    }
+
+    public async Task LoeschenAsync(int kenntnisnahmeId, int handelnderBenutzerId)
+    {
+        var k = await _db.Kenntnisnahmen.FindAsync(kenntnisnahmeId) ?? throw new KeyNotFoundException();
+        var dokId = k.DokumentId;
+        _db.Kenntnisnahmen.Remove(k);
+        await _db.SaveChangesAsync();
+        await _audit.LogAsync(AuditTyp.KenntnisnahmeZugewiesen, handelnderBenutzerId, dokumentId: dokId,
+            beschreibung: "Kenntnisnahme entfernt");
     }
 
     public async Task BestaetigenAsync(int kenntnisnahmeId, int benutzerId)

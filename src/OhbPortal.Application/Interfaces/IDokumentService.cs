@@ -48,9 +48,10 @@ public interface IFreigabeService
 
 public interface IKenntnisnahmeService
 {
-    Task ZuweisenBenutzerAsync(int dokumentId, int benutzerId, DateTime? faelligkeit);
-    Task ZuweisenTeamAsync(int dokumentId, int teamId, DateTime? faelligkeit);
+    Task ZuweisenBenutzerAsync(int dokumentId, int benutzerId, DateTime? faelligkeit, int handelnderBenutzerId);
+    Task ZuweisenTeamAsync(int dokumentId, int teamId, DateTime? faelligkeit, int handelnderBenutzerId);
     Task BestaetigenAsync(int kenntnisnahmeId, int benutzerId);
+    Task LoeschenAsync(int kenntnisnahmeId, int handelnderBenutzerId);
     Task<IEnumerable<KenntnisnahmeDto>> GetProDokumentAsync(int dokumentId);
     Task<IEnumerable<KenntnisnahmeOffenDto>> GetMeineOffenenAsync(int benutzerId);
 }

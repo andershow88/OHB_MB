@@ -6,6 +6,7 @@
     var freigaben = ViewBag.Freigaben as List<OhbPortal.Application.DTOs.FreigabeGruppeDto> ?? new();
     var kn = ViewBag.Kenntnisnahmen as List<OhbPortal.Application.DTOs.KenntnisnahmeDto> ?? new();
     var alleBenutzer = (ViewBag.AlleBenutzer as IEnumerable<dynamic>) ?? Enumerable.Empty<dynamic>();
+    var alleTeams = (ViewBag.AlleTeams as IEnumerable<dynamic>) ?? Enumerable.Empty<dynamic>();
     bool istEditor = User.IsInRole("Editor") || User.IsInRole("Admin") || User.IsInRole("Bereichsverantwortlicher");
     bool istApprover = User.IsInRole("Approver") || User.IsInRole("Admin");
     int meineBenutzerId = int.TryParse(User.FindFirst("BenutzerId")?.Value, out var bId) ? bId : 0;
@@ -88,43 +89,161 @@
             </div>
         </div>
 
-        <!-- Freigaben -->
+        @* ══ Freigabe-KONFIGURATION (Editor-Sicht) ═════════════════════════════ *@
+        @if (istEditor && Model.FreigabeModus != FreigabeModus.Keine)
+        {
+            <div class="mc-card mt-4">
+                <div class="mc-card-header">
+                    <h2 class="mc-card-title"><i class="bi bi-sliders"></i> Freigabe-Konfiguration</h2>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="small text-muted">
+                            Modus: @Model.FreigabeModus (@Model.FreigabeReihenfolge)
+                        </span>
+                        @if (konfigAenderbar)
+                        {
+                            <button class="btn-mc-primary" style="font-size:.78rem; padding:.3rem .65rem;"
+                                    data-bs-toggle="modal" data-bs-target="#gruppeNeuModal">
+                                <i class="bi bi-plus-circle"></i> Gruppe
+                            </button>
+                        }
+                    </div>
+                </div>
+                <div class="mc-card-body">
+                    @if (!konfigAenderbar)
+                    {
+                        <div class="alert alert-info py-2 mb-3 small">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Konfiguration gesperrt — Dokument ist
+                            @(Model.Status == DokumentStatus.InFreigabe ? "in Freigabe" :
+                              Model.Status == DokumentStatus.Freigegeben ? "bereits freigegeben" : "archiviert").
+                        </div>
+                    }
+                    @if (!freigaben.Any())
+                    {
+                        <p class="text-muted small mb-0">Noch keine Freigabegruppen angelegt.</p>
+                    }
+                    else
+                    {
+                        foreach (var g in freigaben)
+                        {
+                            <div style="border:1px solid var(--mc-border); border-radius:var(--mc-radius); padding:.85rem 1rem; margin-bottom:.6rem;">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    @if (Model.FreigabeReihenfolge == FreigabeReihenfolge.Sequentiell)
+                                    {
+                                        <span class="mc-badge badge-secondary" title="Stufe">Stufe @g.Reihenfolge</span>
+                                    }
+                                    <strong>@g.Bezeichnung</strong>
+                                    <span class="small text-muted ms-auto">Quorum: @g.BenoetigteZustimmungen</span>
+                                    @if (konfigAenderbar)
+                                    {
+                                        <button class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .45rem;"
+                                                data-bs-toggle="modal" data-bs-target="#gruppeBearbeitenModal"
+                                                onclick="gruppeVorbereiten(@g.Id, '@g.Bezeichnung.Replace("'", "\\'")', @g.Reihenfolge, @g.BenoetigteZustimmungen)">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <form asp-controller="FreigabeGruppen" asp-action="Loeschen" method="post"
+                                              style="display:inline;" onsubmit="return confirm('Freigabegruppe löschen?');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="gruppeId" value="@g.Id" />
+                                            <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                            <button class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .45rem; color:var(--mc-danger);">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
+                                <div class="small">
+                                    <div class="fw-semibold mb-1" style="color:var(--mc-text-muted);">Mitglieder</div>
+                                    @if (!g.Mitglieder.Any())
+                                    {
+                                        <em class="text-muted">Noch keine Mitglieder zugewiesen.</em>
+                                    }
+                                    else
+                                    {
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var m in g.Mitglieder)
+                                            {
+                                                <span class="mc-badge badge-primary d-inline-flex align-items-center" style="gap:.4rem; font-size:.72rem;">
+                                                    <i class="bi bi-person"></i> @m.Anzeigename
+                                                    @if (konfigAenderbar)
+                                                    {
+                                                        <form asp-controller="FreigabeGruppen" asp-action="MitgliedEntfernen" method="post" style="display:inline;">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="mitgliedId" value="@m.MitgliedId" />
+                                                            <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                                            <button class="btn-link p-0 border-0" style="background:none; color:inherit; line-height:1;">
+                                                                <i class="bi bi-x-circle"></i>
+                                                            </button>
+                                                        </form>
+                                                    }
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                    @if (konfigAenderbar)
+                                    {
+                                        <form asp-controller="FreigabeGruppen" asp-action="MitgliedHinzufuegen" method="post"
+                                              class="d-flex gap-2 mt-2 align-items-center">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="gruppeId" value="@g.Id" />
+                                            <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                            <select name="benutzerId" class="form-select form-select-sm" required style="max-width:260px;">
+                                                <option value="">– Benutzer hinzufügen –</option>
+                                                @foreach (var b in alleBenutzer)
+                                                {
+                                                    int bId2 = (int)b.Id;
+                                                    string ba = (string)b.Anzeigename;
+                                                    if (!g.Mitglieder.Any(m => m.BenutzerId == bId2))
+                                                    {
+                                                        <option value="@bId2">@ba</option>
+                                                    }
+                                                }
+                                            </select>
+                                            <button class="btn-mc-ghost" style="font-size:.72rem; padding:.25rem .55rem;">
+                                                <i class="bi bi-person-plus"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+
+        @* ══ Freigaben-STATUS / Entscheidungen (Approver-Sicht) ════════════════ *@
         <div class="mc-card mt-4">
             <div class="mc-card-header">
                 <h2 class="mc-card-title"><i class="bi bi-check2-square"></i> Freigaben</h2>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="small text-muted">
-                        Modus: @Model.FreigabeModus @(Model.FreigabeModus != FreigabeModus.Keine ? $"({Model.FreigabeReihenfolge})" : "")
-                    </span>
-                    @if (istEditor && konfigAenderbar && Model.FreigabeModus != FreigabeModus.Keine)
-                    {
-                        <button class="btn-mc-primary" style="font-size:.78rem; padding:.3rem .65rem;"
-                                data-bs-toggle="modal" data-bs-target="#gruppeNeuModal">
-                            <i class="bi bi-plus-circle"></i> Gruppe
-                        </button>
-                    }
-                </div>
+                <span class="small text-muted">
+                    @if (Model.FreigabeModus == FreigabeModus.Keine)
+                    { <span>Kein Workflow</span> }
+                    else
+                    { <span>Modus: @Model.FreigabeModus (@Model.FreigabeReihenfolge)</span> }
+                </span>
             </div>
             <div class="mc-card-body">
                 @if (Model.FreigabeModus == FreigabeModus.Keine)
                 {
                     <p class="text-muted small mb-0">
-                        Kein Freigabe-Workflow aktiv. Ändern Sie den Modus im <a asp-action="Bearbeiten" asp-route-id="@Model.Id">Dokument-Edit</a>.
+                        Kein Freigabe-Workflow aktiv. Ändern Sie den Modus im
+                        <a asp-action="Bearbeiten" asp-route-id="@Model.Id">Dokument-Edit</a>.
                     </p>
                 }
                 else if (!freigaben.Any())
                 {
-                    <p class="text-muted small mb-0">Keine Freigabegruppen konfiguriert.</p>
+                    <p class="text-muted small mb-0">Keine Freigabegruppen konfiguriert. Siehe oben „Freigabe-Konfiguration".</p>
                 }
                 else
                 {
-                    foreach (var g in freigaben)
+                    @foreach (var g in freigaben)
                     {
-                        <div style="border:1px solid var(--mc-border); border-radius:var(--mc-radius); padding:1rem; margin-bottom:.75rem;">
+                        <div style="border:1px solid var(--mc-border); border-radius:var(--mc-radius); padding:.85rem 1rem; margin-bottom:.6rem;">
                             <div class="d-flex align-items-center gap-2 mb-2">
                                 @if (Model.FreigabeReihenfolge == FreigabeReihenfolge.Sequentiell)
                                 {
-                                    <span class="mc-badge badge-secondary" title="Stufe im sequentiellen Workflow">Stufe @g.Reihenfolge</span>
+                                    <span class="mc-badge badge-secondary">Stufe @g.Reihenfolge</span>
                                 }
                                 <strong>@g.Bezeichnung</strong>
                                 <span class="mc-badge @GesamtBadge(g.Gesamtstatus)">@g.Gesamtstatus</span>
@@ -132,90 +251,24 @@
                                     @g.Zustimmungen.Count(z => z.Entscheidung == FreigabeEntscheidung.Zugestimmt)
                                     / @g.BenoetigteZustimmungen Zustimmungen
                                 </span>
-                                @if (istEditor && konfigAenderbar)
-                                {
-                                    <button class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .45rem;"
-                                            data-bs-toggle="modal" data-bs-target="#gruppeBearbeitenModal"
-                                            onclick="gruppeVorbereiten(@g.Id, '@g.Bezeichnung.Replace("'", "\\'")', @g.Reihenfolge, @g.BenoetigteZustimmungen)">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <form asp-controller="FreigabeGruppen" asp-action="Loeschen" method="post"
-                                          style="display:inline;" onsubmit="return confirm('Freigabegruppe löschen?');">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="gruppeId" value="@g.Id" />
-                                        <input type="hidden" name="dokumentId" value="@Model.Id" />
-                                        <button class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .45rem; color:var(--mc-danger);">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                }
                             </div>
-
-                            <!-- Mitglieder -->
-                            <div class="small mb-2">
-                                <div class="fw-semibold mb-1" style="color:var(--mc-text-muted);">Mitglieder</div>
-                                @if (!g.Mitglieder.Any())
+                            @if (g.Zustimmungen.Any())
+                            {
+                                @foreach (var z in g.Zustimmungen)
                                 {
-                                    <em class="text-muted">Noch keine Mitglieder zugewiesen.</em>
-                                }
-                                else
-                                {
-                                    <div class="d-flex flex-wrap gap-1">
-                                        @foreach (var m in g.Mitglieder)
-                                        {
-                                            <span class="mc-badge badge-primary d-inline-flex align-items-center" style="gap:.4rem; font-size:.72rem;">
-                                                <i class="bi bi-person"></i> @m.Anzeigename
-                                                @if (istEditor && konfigAenderbar)
-                                                {
-                                                    <form asp-controller="FreigabeGruppen" asp-action="MitgliedEntfernen" method="post" style="display:inline;">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="mitgliedId" value="@m.MitgliedId" />
-                                                        <input type="hidden" name="dokumentId" value="@Model.Id" />
-                                                        <button class="btn-link p-0 border-0" style="background:none; color:inherit; line-height:1;">
-                                                            <i class="bi bi-x-circle"></i>
-                                                        </button>
-                                                    </form>
-                                                }
-                                            </span>
-                                        }
+                                    <div class="small" style="padding:.2rem 0; border-top:1px dashed var(--mc-border);">
+                                        <span class="mc-badge @GesamtBadge(z.Entscheidung)">@z.Entscheidung</span>
+                                        <strong>@z.Benutzer</strong>
+                                        @if (z.EntschiedenAm.HasValue) { <span class="text-muted">· @z.EntschiedenAm.Value.ToString("dd.MM.yyyy HH:mm")</span> }
+                                        @if (!string.IsNullOrEmpty(z.Kommentar)) { <div class="text-muted ms-4">„@z.Kommentar"</div> }
                                     </div>
                                 }
-                                @if (istEditor && konfigAenderbar)
-                                {
-                                    <form asp-controller="FreigabeGruppen" asp-action="MitgliedHinzufuegen" method="post"
-                                          class="d-flex gap-2 mt-2 align-items-center">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="gruppeId" value="@g.Id" />
-                                        <input type="hidden" name="dokumentId" value="@Model.Id" />
-                                        <select name="benutzerId" class="form-select form-select-sm" required style="max-width:260px;">
-                                            <option value="">– Benutzer hinzufügen –</option>
-                                            @foreach (var b in alleBenutzer)
-                                            {
-                                                int bId2 = (int)b.Id;
-                                                string ba = (string)b.Anzeigename;
-                                                if (!g.Mitglieder.Any(m => m.BenutzerId == bId2))
-                                                {
-                                                    <option value="@bId2">@ba</option>
-                                                }
-                                            }
-                                        </select>
-                                        <button class="btn-mc-ghost" style="font-size:.72rem; padding:.25rem .55rem;">
-                                            <i class="bi bi-person-plus"></i>
-                                        </button>
-                                    </form>
-                                }
-                            </div>
-
-                            @foreach (var z in g.Zustimmungen)
-                            {
-                                <div class="small" style="padding:.2rem 0; border-top:1px dashed var(--mc-border);">
-                                    <span class="mc-badge @GesamtBadge(z.Entscheidung)">@z.Entscheidung</span>
-                                    <strong>@z.Benutzer</strong>
-                                    @if (z.EntschiedenAm.HasValue) { <span class="text-muted">· @z.EntschiedenAm.Value.ToString("dd.MM.yyyy HH:mm")</span> }
-                                    @if (!string.IsNullOrEmpty(z.Kommentar)) { <div class="text-muted ms-4">„@z.Kommentar"</div> }
-                                </div>
                             }
-                            @if (Model.Status == DokumentStatus.InFreigabe)
+                            else
+                            {
+                                <div class="small text-muted">Noch keine Entscheidungen erfasst.</div>
+                            }
+                            @if (Model.Status == DokumentStatus.InFreigabe && g.Mitglieder.Any(m => m.BenutzerId == meineBenutzerId))
                             {
                                 <form asp-action="FreigabeZustimmen" method="post" class="mt-2 d-flex gap-2">
                                     @Html.AntiForgeryToken()
@@ -232,14 +285,6 @@
                             }
                         </div>
                     }
-                }
-
-                @if (!konfigAenderbar && (Model.Status == DokumentStatus.InFreigabe || Model.Status == DokumentStatus.Freigegeben))
-                {
-                    <div class="small text-muted mt-2">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Konfiguration gesperrt — Dokument ist @(Model.Status == DokumentStatus.InFreigabe ? "in Freigabe" : "bereits freigegeben").
-                    </div>
                 }
             </div>
         </div>
@@ -325,8 +370,85 @@
         <div class="mc-card mt-4">
             <div class="mc-card-header">
                 <h2 class="mc-card-title"><i class="bi bi-eye"></i> Kenntnisnahmen</h2>
+                <span class="small text-muted">@kn.Count(k => k.Status == KenntnisnahmeStatus.Bestaetigt) / @kn.Count bestätigt</span>
             </div>
             <div class="mc-card-body">
+                @if (istEditor)
+                {
+                    <div style="background:var(--mc-bg); border:1px solid var(--mc-border); border-radius:var(--mc-radius); padding:.85rem 1rem; margin-bottom:1rem;">
+                        <div class="fw-semibold small mb-2" style="color:var(--mc-text-muted);">
+                            <i class="bi bi-person-plus me-1"></i>Neue Kenntnisnahme zuweisen
+                        </div>
+
+                        <ul class="nav nav-tabs mb-2" role="tablist" style="font-size:.85rem;">
+                            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#knTabUser" type="button">Benutzer</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#knTabTeam" type="button">Team</button></li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="knTabUser">
+                                <form asp-controller="Kenntnisnahmen" asp-action="ZuweisenBenutzer" method="post" class="row g-2 align-items-end">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                    <div class="col-md-6">
+                                        <label class="form-label small mb-1">Benutzer</label>
+                                        <select name="benutzerId" class="form-select form-select-sm" required>
+                                            <option value="">– Benutzer wählen –</option>
+                                            @foreach (var b in alleBenutzer)
+                                            {
+                                                int bId2 = (int)b.Id;
+                                                string ba = (string)b.Anzeigename;
+                                                if (!kn.Any(x => x.Ziel == $"Benutzer: {ba}"))
+                                                {
+                                                    <option value="@bId2">@ba</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-1">Fällig bis (optional)</label>
+                                        <input name="faelligkeit" type="date" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button class="btn-mc-primary w-100" style="font-size:.82rem; padding:.35rem .5rem;">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="tab-pane fade" id="knTabTeam">
+                                <form asp-controller="Kenntnisnahmen" asp-action="ZuweisenTeam" method="post" class="row g-2 align-items-end">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                    <div class="col-md-6">
+                                        <label class="form-label small mb-1">Team</label>
+                                        <select name="teamId" class="form-select form-select-sm" required>
+                                            <option value="">– Team wählen –</option>
+                                            @foreach (var t in alleTeams)
+                                            {
+                                                int tId = (int)t.Id;
+                                                string tn = (string)t.Name;
+                                                if (!kn.Any(x => x.Ziel == $"Team: {tn}"))
+                                                {
+                                                    <option value="@tId">@tn</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-1">Fällig bis (optional)</label>
+                                        <input name="faelligkeit" type="date" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button class="btn-mc-primary w-100" style="font-size:.82rem; padding:.35rem .5rem;">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
+
                 @if (!kn.Any())
                 {
                     <p class="text-muted small mb-0">Keine Kenntnisnahmen zugewiesen.</p>
@@ -335,23 +457,44 @@
                 {
                     <table class="table table-sm mb-0" style="font-size:.85rem;">
                         <thead>
-                            <tr><th>Ziel</th><th>Status</th><th>Fällig</th><th>Bestätigt</th></tr>
+                            <tr>
+                                <th>Ziel</th>
+                                <th>Status</th>
+                                <th>Fällig</th>
+                                <th>Bestätigt</th>
+                                @if (istEditor) { <th style="width:40px;"></th> }
+                            </tr>
                         </thead>
                         <tbody>
                         @foreach (var k in kn)
                         {
+                            var ueberfaellig = k.Faelligkeit.HasValue && k.Faelligkeit.Value < DateTime.UtcNow && k.Status != KenntnisnahmeStatus.Bestaetigt;
                             <tr>
                                 <td>@k.Ziel</td>
                                 <td>
-                                    <span class="mc-badge @(k.Status == KenntnisnahmeStatus.Bestaetigt ? "badge-success" : "badge-warning")">
-                                        @k.Status
+                                    <span class="mc-badge @(k.Status == KenntnisnahmeStatus.Bestaetigt ? "badge-success" : ueberfaellig ? "badge-danger" : "badge-warning")">
+                                        @(ueberfaellig ? "überfällig" : k.Status.ToString())
                                     </span>
                                 </td>
-                                <td>@(k.Faelligkeit?.ToString("dd.MM.yyyy") ?? "–")</td>
+                                <td class="@(ueberfaellig ? "text-danger fw-semibold" : "")">@(k.Faelligkeit?.ToString("dd.MM.yyyy") ?? "–")</td>
                                 <td>
                                     @if (k.BestaetigtAm.HasValue) { <span>@k.BestaetigtAm.Value.ToString("dd.MM.yyyy") – @k.BestaetigtVon</span> }
                                     else { <span class="text-muted">–</span> }
                                 </td>
+                                @if (istEditor)
+                                {
+                                    <td>
+                                        <form asp-controller="Kenntnisnahmen" asp-action="Loeschen" method="post"
+                                              onsubmit="return confirm('Kenntnisnahme entfernen?');" style="display:inline;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="kenntnisnahmeId" value="@k.Id" />
+                                            <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                            <button class="btn-link p-0 border-0" style="background:none; color:var(--mc-danger); line-height:1;" title="Entfernen">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                }
                             </tr>
                         }
                         </tbody>

@@ -71,6 +71,11 @@ public class DokumenteController : BaseController
             .OrderBy(b => b.Anzeigename)
             .Select(b => new { b.Id, b.Anzeigename })
             .ToListAsync();
+        ViewBag.AlleTeams = await _db.Teams
+            .Where(t => t.IstAktiv)
+            .OrderBy(t => t.Name)
+            .Select(t => new { t.Id, t.Name })
+            .ToListAsync();
         return View(d);
     }
 
