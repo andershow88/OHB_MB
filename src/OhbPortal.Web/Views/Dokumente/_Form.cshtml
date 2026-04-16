@@ -240,9 +240,11 @@
             };
         }
 
-        const form = document.querySelector('form');
-        form.addEventListener('submit', () => {
-            hidden.value = quill.root.innerHTML;
-        });
+        const form = hidden.closest('form');
+        if (form) {
+            form.addEventListener('submit', () => {
+                hidden.value = quill.root.innerHTML;
+            });
+        }
     })();
 </script>
