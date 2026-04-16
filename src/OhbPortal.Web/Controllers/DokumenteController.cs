@@ -66,6 +66,11 @@ public class DokumenteController : BaseController
         ViewBag.Audit = (await _svc.GetAuditAsync(id)).ToList();
         ViewBag.Freigaben = (await _freigabe.GetGruppenAsync(id)).ToList();
         ViewBag.Kenntnisnahmen = (await _kn.GetProDokumentAsync(id)).ToList();
+        ViewBag.AlleBenutzer = await _db.Benutzer
+            .Where(b => b.IstAktiv)
+            .OrderBy(b => b.Anzeigename)
+            .Select(b => new { b.Id, b.Anzeigename })
+            .ToListAsync();
         return View(d);
     }
 

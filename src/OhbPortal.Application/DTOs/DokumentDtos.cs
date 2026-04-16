@@ -131,9 +131,11 @@ public record FreigabeGruppeDto(
     string Bezeichnung,
     int Reihenfolge,
     int BenoetigteZustimmungen,
-    IReadOnlyList<string> Mitglieder,
+    IReadOnlyList<FreigabeMitgliedDto> Mitglieder,
     IReadOnlyList<FreigabeZustimmungDto> Zustimmungen,
     FreigabeEntscheidung Gesamtstatus);
+
+public record FreigabeMitgliedDto(int MitgliedId, int BenutzerId, string Anzeigename);
 
 public record FreigabeZustimmungDto(
     int Id,

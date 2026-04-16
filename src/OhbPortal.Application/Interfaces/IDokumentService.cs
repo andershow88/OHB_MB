@@ -37,6 +37,13 @@ public interface IFreigabeService
     Task AblehnenAsync(int freigabeGruppeId, int benutzerId, string? kommentar = null);
     Task<IEnumerable<OffeneFreigabeDto>> GetMeineOffenenAsync(int benutzerId);
     Task<IEnumerable<FreigabeGruppeDto>> GetGruppenAsync(int dokumentId);
+
+    // Pflege der Gruppen-Konfiguration
+    Task<int> GruppeAnlegenAsync(int dokumentId, string bezeichnung, int reihenfolge, int benoetigteZustimmungen, int benutzerId);
+    Task GruppeBearbeitenAsync(int gruppeId, string bezeichnung, int reihenfolge, int benoetigteZustimmungen, int benutzerId);
+    Task GruppeLoeschenAsync(int gruppeId, int benutzerId);
+    Task MitgliedHinzufuegenAsync(int gruppeId, int zugewiesenerBenutzerId, int handelnderBenutzerId);
+    Task MitgliedEntfernenAsync(int mitgliedId, int handelnderBenutzerId);
 }
 
 public interface IKenntnisnahmeService

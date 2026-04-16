@@ -5,9 +5,11 @@
     var audit = ViewBag.Audit as List<OhbPortal.Application.DTOs.AuditDto> ?? new();
     var freigaben = ViewBag.Freigaben as List<OhbPortal.Application.DTOs.FreigabeGruppeDto> ?? new();
     var kn = ViewBag.Kenntnisnahmen as List<OhbPortal.Application.DTOs.KenntnisnahmeDto> ?? new();
+    var alleBenutzer = (ViewBag.AlleBenutzer as IEnumerable<dynamic>) ?? Enumerable.Empty<dynamic>();
     bool istEditor = User.IsInRole("Editor") || User.IsInRole("Admin") || User.IsInRole("Bereichsverantwortlicher");
     bool istApprover = User.IsInRole("Approver") || User.IsInRole("Admin");
     int meineBenutzerId = int.TryParse(User.FindFirst("BenutzerId")?.Value, out var bId) ? bId : 0;
+    bool konfigAenderbar = Model.Status is DokumentStatus.Entwurf or DokumentStatus.Abgelehnt;
 }
 
 <div class="mc-page-header">
@@ -90,12 +92,27 @@
         <div class="mc-card mt-4">
             <div class="mc-card-header">
                 <h2 class="mc-card-title"><i class="bi bi-check2-square"></i> Freigaben</h2>
-                <span class="small text-muted">
-                    Modus: @Model.FreigabeModus @(Model.FreigabeModus == FreigabeModus.Gruppen ? $"({Model.FreigabeReihenfolge})" : "")
-                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="small text-muted">
+                        Modus: @Model.FreigabeModus @(Model.FreigabeModus != FreigabeModus.Keine ? $"({Model.FreigabeReihenfolge})" : "")
+                    </span>
+                    @if (istEditor && konfigAenderbar && Model.FreigabeModus != FreigabeModus.Keine)
+                    {
+                        <button class="btn-mc-primary" style="font-size:.78rem; padding:.3rem .65rem;"
+                                data-bs-toggle="modal" data-bs-target="#gruppeNeuModal">
+                            <i class="bi bi-plus-circle"></i> Gruppe
+                        </button>
+                    }
+                </div>
             </div>
             <div class="mc-card-body">
-                @if (!freigaben.Any())
+                @if (Model.FreigabeModus == FreigabeModus.Keine)
+                {
+                    <p class="text-muted small mb-0">
+                        Kein Freigabe-Workflow aktiv. Ändern Sie den Modus im <a asp-action="Bearbeiten" asp-route-id="@Model.Id">Dokument-Edit</a>.
+                    </p>
+                }
+                else if (!freigaben.Any())
                 {
                     <p class="text-muted small mb-0">Keine Freigabegruppen konfiguriert.</p>
                 }
@@ -103,17 +120,92 @@
                 {
                     foreach (var g in freigaben)
                     {
-                        var istMitglied = g.Mitglieder.Any(); // Info-Anzeige; Zustimmen-Endpoint prüft serverseitig
                         <div style="border:1px solid var(--mc-border); border-radius:var(--mc-radius); padding:1rem; margin-bottom:.75rem;">
                             <div class="d-flex align-items-center gap-2 mb-2">
+                                @if (Model.FreigabeReihenfolge == FreigabeReihenfolge.Sequentiell)
+                                {
+                                    <span class="mc-badge badge-secondary" title="Stufe im sequentiellen Workflow">Stufe @g.Reihenfolge</span>
+                                }
                                 <strong>@g.Bezeichnung</strong>
                                 <span class="mc-badge @GesamtBadge(g.Gesamtstatus)">@g.Gesamtstatus</span>
                                 <span class="small text-muted ms-auto">
                                     @g.Zustimmungen.Count(z => z.Entscheidung == FreigabeEntscheidung.Zugestimmt)
                                     / @g.BenoetigteZustimmungen Zustimmungen
                                 </span>
+                                @if (istEditor && konfigAenderbar)
+                                {
+                                    <button class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .45rem;"
+                                            data-bs-toggle="modal" data-bs-target="#gruppeBearbeitenModal"
+                                            onclick="gruppeVorbereiten(@g.Id, '@g.Bezeichnung.Replace("'", "\\'")', @g.Reihenfolge, @g.BenoetigteZustimmungen)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form asp-controller="FreigabeGruppen" asp-action="Loeschen" method="post"
+                                          style="display:inline;" onsubmit="return confirm('Freigabegruppe löschen?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="gruppeId" value="@g.Id" />
+                                        <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                        <button class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .45rem; color:var(--mc-danger);">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                }
                             </div>
-                            <div class="small text-muted mb-2">Mitglieder: @string.Join(", ", g.Mitglieder)</div>
+
+                            <!-- Mitglieder -->
+                            <div class="small mb-2">
+                                <div class="fw-semibold mb-1" style="color:var(--mc-text-muted);">Mitglieder</div>
+                                @if (!g.Mitglieder.Any())
+                                {
+                                    <em class="text-muted">Noch keine Mitglieder zugewiesen.</em>
+                                }
+                                else
+                                {
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (var m in g.Mitglieder)
+                                        {
+                                            <span class="mc-badge badge-primary d-inline-flex align-items-center" style="gap:.4rem; font-size:.72rem;">
+                                                <i class="bi bi-person"></i> @m.Anzeigename
+                                                @if (istEditor && konfigAenderbar)
+                                                {
+                                                    <form asp-controller="FreigabeGruppen" asp-action="MitgliedEntfernen" method="post" style="display:inline;">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="mitgliedId" value="@m.MitgliedId" />
+                                                        <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                                        <button class="btn-link p-0 border-0" style="background:none; color:inherit; line-height:1;">
+                                                            <i class="bi bi-x-circle"></i>
+                                                        </button>
+                                                    </form>
+                                                }
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                                @if (istEditor && konfigAenderbar)
+                                {
+                                    <form asp-controller="FreigabeGruppen" asp-action="MitgliedHinzufuegen" method="post"
+                                          class="d-flex gap-2 mt-2 align-items-center">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="gruppeId" value="@g.Id" />
+                                        <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                        <select name="benutzerId" class="form-select form-select-sm" required style="max-width:260px;">
+                                            <option value="">– Benutzer hinzufügen –</option>
+                                            @foreach (var b in alleBenutzer)
+                                            {
+                                                int bId2 = (int)b.Id;
+                                                string ba = (string)b.Anzeigename;
+                                                if (!g.Mitglieder.Any(m => m.BenutzerId == bId2))
+                                                {
+                                                    <option value="@bId2">@ba</option>
+                                                }
+                                            }
+                                        </select>
+                                        <button class="btn-mc-ghost" style="font-size:.72rem; padding:.25rem .55rem;">
+                                            <i class="bi bi-person-plus"></i>
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+
                             @foreach (var z in g.Zustimmungen)
                             {
                                 <div class="small" style="padding:.2rem 0; border-top:1px dashed var(--mc-border);">
@@ -141,8 +233,93 @@
                         </div>
                     }
                 }
+
+                @if (!konfigAenderbar && (Model.Status == DokumentStatus.InFreigabe || Model.Status == DokumentStatus.Freigegeben))
+                {
+                    <div class="small text-muted mt-2">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Konfiguration gesperrt — Dokument ist @(Model.Status == DokumentStatus.InFreigabe ? "in Freigabe" : "bereits freigegeben").
+                    </div>
+                }
             </div>
         </div>
+
+        @if (istEditor && konfigAenderbar && Model.FreigabeModus != FreigabeModus.Keine)
+        {
+            <!-- Modal: neue Gruppe -->
+            <div class="modal fade" id="gruppeNeuModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form asp-controller="FreigabeGruppen" asp-action="Anlegen" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="dokumentId" value="@Model.Id" />
+                            <div class="modal-header">
+                                <h5 class="modal-title"><i class="bi bi-check2-square me-2"></i>Neue Freigabegruppe</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Bezeichnung</label>
+                                    <input name="bezeichnung" class="form-control" placeholder="z.B. Informationssicherheit" required />
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold small">Stufe / Reihenfolge</label>
+                                        <input name="reihenfolge" type="number" min="1" value="1" class="form-control form-control-sm" />
+                                        <div class="small text-muted">Bei sequentiellen Workflows wichtig.</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold small">Benötigte Zustimmungen (Quorum)</label>
+                                        <input name="benoetigteZustimmungen" type="number" min="1" value="1" class="form-control form-control-sm" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn-mc-ghost" data-bs-dismiss="modal">Abbrechen</button>
+                                <button type="submit" class="btn-mc-primary"><i class="bi bi-check2 me-1"></i>Anlegen</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Gruppe bearbeiten -->
+            <div class="modal fade" id="gruppeBearbeitenModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form asp-controller="FreigabeGruppen" asp-action="Bearbeiten" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="dokumentId" value="@Model.Id" />
+                            <input type="hidden" name="gruppeId" id="gb_gruppeId" />
+                            <div class="modal-header">
+                                <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Freigabegruppe bearbeiten</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Bezeichnung</label>
+                                    <input name="bezeichnung" id="gb_bezeichnung" class="form-control" required />
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold small">Stufe</label>
+                                        <input name="reihenfolge" id="gb_reihenfolge" type="number" min="1" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold small">Quorum</label>
+                                        <input name="benoetigteZustimmungen" id="gb_quorum" type="number" min="1" class="form-control form-control-sm" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn-mc-ghost" data-bs-dismiss="modal">Abbrechen</button>
+                                <button type="submit" class="btn-mc-primary"><i class="bi bi-check2 me-1"></i>Speichern</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        }
 
         <!-- Kenntnisnahmen -->
         <div class="mc-card mt-4">
@@ -347,6 +524,17 @@
         }
     </div>
 </div>
+
+@section Scripts {
+<script>
+    function gruppeVorbereiten(id, bez, reihenfolge, quorum) {
+        document.getElementById('gb_gruppeId').value = id;
+        document.getElementById('gb_bezeichnung').value = bez;
+        document.getElementById('gb_reihenfolge').value = reihenfolge;
+        document.getElementById('gb_quorum').value = quorum;
+    }
+</script>
+}
 
 <style>
     .ohb-richtext h1, .ohb-richtext h2, .ohb-richtext h3 { color:var(--mc-text); margin-top:1.4rem; margin-bottom:.5rem; font-weight:700; }
