@@ -24,3 +24,6 @@ src/OhbPortal.Web/wwwroot/uploads/*
 
 # Claude Code
 .claude/worktrees/
+
+# Importierte Original-PDFs (enthalten Personendaten, nicht ins Repo)
+Dokument_*.pdf
