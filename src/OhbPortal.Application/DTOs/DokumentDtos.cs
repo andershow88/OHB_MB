@@ -60,6 +60,8 @@ public record DokumentErstellenDto(
     DateTime? Pruefterm,
     string? InhaltHtml,
     FreigabeModus FreigabeModus,
+    bool OeffentlichLesbar = true,
+    bool Druckverbot = false,
     IReadOnlyList<int>? VerlinkteDokumentIds = null);
 
 public record DokumentBearbeitenDto(
@@ -80,6 +82,19 @@ public record DokumentBearbeitenDto(
     IReadOnlyList<int>? VerlinkteDokumentIds = null);
 
 public record DokumentVorschlagDto(int Id, string Titel, string Kapitel);
+
+public record BerechtigungsKontext(int BenutzerId, Rolle Rolle)
+{
+    public bool IstAdmin => Rolle == Rolle.Admin;
+}
+
+public record BerechtigungDto(
+    int Id,
+    string ZielBeschreibung,
+    BerechtigungsTyp Typ,
+    int? BenutzerId,
+    int? TeamId,
+    Rolle? ZielRolle);
 
 public record DokumentFilterDto(
     string? Suchbegriff = null,

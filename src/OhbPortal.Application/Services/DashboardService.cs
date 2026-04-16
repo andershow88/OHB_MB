@@ -24,9 +24,10 @@ public class DashboardService : IDashboardService
         _dokumente = dokumente;
     }
 
-    public Task<DashboardDto> GetAsync(int benutzerId) => GetAsync(benutzerId, nurAktuellSichtbare: false);
+    public Task<DashboardDto> GetAsync(int benutzerId)
+        => GetAsync(benutzerId, nurAktuellSichtbare: false, new BerechtigungsKontext(benutzerId, Rolle.Admin));
 
-    public async Task<DashboardDto> GetAsync(int benutzerId, bool nurAktuellSichtbare)
+    public async Task<DashboardDto> GetAsync(int benutzerId, bool nurAktuellSichtbare, BerechtigungsKontext kontext)
     {
         var total = await _db.Dokumente.CountAsync(d => !d.Geloescht);
         var entw = await _db.Dokumente.CountAsync(d => !d.Geloescht && d.Status == DokumentStatus.Entwurf);
@@ -38,7 +39,7 @@ public class DashboardService : IDashboardService
         var offeneKenntnisnahmen = (await _kenntnisnahmen.GetMeineOffenenAsync(benutzerId)).Count();
 
         var letzte = (await _dokumente.GetAlleAsync(
-            new DokumentFilterDto(NurAktuellSichtbare: nurAktuellSichtbare))).Take(10).ToList();
+            new DokumentFilterDto(NurAktuellSichtbare: nurAktuellSichtbare), kontext)).Take(10).ToList();
 
         return new DashboardDto(total, entw, frei, inFrei, offeneFreigaben, offeneKenntnisnahmen,
             ueberfaellig, letzte);

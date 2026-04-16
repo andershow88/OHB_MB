@@ -30,6 +30,7 @@ builder.Services.AddScoped<IKapitelService, KapitelService>();
 builder.Services.AddScoped<IDokumentService, DokumentService>();
 builder.Services.AddScoped<IFreigabeService, FreigabeService>();
 builder.Services.AddScoped<IKenntnisnahmeService, KenntnisnahmeService>();
+builder.Services.AddScoped<IBerechtigungService, BerechtigungService>();
 builder.Services.AddScoped<IAnhangService, AnhangService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IAdminService, AdminService>();

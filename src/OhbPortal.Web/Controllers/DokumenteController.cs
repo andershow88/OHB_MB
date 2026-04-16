@@ -16,6 +16,7 @@ public class DokumenteController : BaseController
     private readonly IFreigabeService _freigabe;
     private readonly IKenntnisnahmeService _kn;
     private readonly IAnhangService _anhang;
+    private readonly IBerechtigungService _ber;
     private readonly IApplicationDbContext _db;
     private readonly IFileStorage _fileStorage;
 
@@ -24,6 +25,7 @@ public class DokumenteController : BaseController
         IFreigabeService freigabe,
         IKenntnisnahmeService kn,
         IAnhangService anhang,
+        IBerechtigungService ber,
         IApplicationDbContext db,
         IFileStorage fileStorage)
     {
@@ -31,9 +33,12 @@ public class DokumenteController : BaseController
         _freigabe = freigabe;
         _kn = kn;
         _anhang = anhang;
+        _ber = ber;
         _db = db;
         _fileStorage = fileStorage;
     }
+
+    private BerechtigungsKontext Kontext => new(AktuellerBenutzerId, AktuelleRolle);
 
     public async Task<IActionResult> Index(string? q, int? kapitelId, DokumentStatus? status,
         string? kategorie, bool? pruefUeberfaellig)
@@ -42,7 +47,7 @@ public class DokumenteController : BaseController
             NurAktuellSichtbare: !IstEditor && !IstApprover);
         ViewBag.Filter = filter;
         await FuelleDropdowns(kapitelId);
-        var liste = await _svc.GetAlleAsync(filter);
+        var liste = await _svc.GetAlleAsync(filter, Kontext);
         return View(liste);
     }
 
@@ -50,7 +55,7 @@ public class DokumenteController : BaseController
     {
         ViewBag.SeitenTitel = "Archiv";
         ViewBag.SeitenIcon = "bi-archive";
-        var liste = await _svc.GetAlleAsync(new DokumentFilterDto(IncludeArchiviert: true));
+        var liste = await _svc.GetAlleAsync(new DokumentFilterDto(IncludeArchiviert: true), Kontext);
         return View("Index", liste.Where(d => d.Archiviert).ToList());
     }
 
@@ -58,7 +63,7 @@ public class DokumenteController : BaseController
     {
         ViewBag.SeitenTitel = "Papierkorb";
         ViewBag.SeitenIcon = "bi-trash";
-        var liste = await _svc.GetAlleAsync(new DokumentFilterDto(NurGeloescht: true));
+        var liste = await _svc.GetAlleAsync(new DokumentFilterDto(NurGeloescht: true), Kontext);
         return View("Index", liste);
     }
 
@@ -66,6 +71,10 @@ public class DokumenteController : BaseController
     {
         var d = await _svc.GetDetailAsync(id);
         if (d is null) return NotFound();
+
+        // ACL-Prüfung (außer für Editor/Admin/Approver reicht Leserecht)
+        if (!await _svc.DarfLesenAsync(id, Kontext))
+            return NotFound();
 
         // Sichtbar-ab/bis durchsetzen für Nicht-Editoren und Nicht-Approver
         if (!IstEditor && !IstApprover)
@@ -89,6 +98,7 @@ public class DokumenteController : BaseController
             .OrderBy(t => t.Name)
             .Select(t => new { t.Id, t.Name })
             .ToListAsync();
+        ViewBag.Berechtigungen = (await _ber.GetProDokumentAsync(id)).ToList();
         return View(d);
     }
 
@@ -112,7 +122,9 @@ public class DokumenteController : BaseController
         var id = await _svc.ErstellenAsync(new DokumentErstellenDto(
             vm.Titel, vm.Kurzbeschreibung, vm.KapitelId, vm.VerantwortlicherBereichId,
             vm.Kategorie, vm.Tags, vm.SichtbarAb, vm.SichtbarBis, vm.Pruefterm,
-            vm.InhaltHtml, vm.FreigabeModus, vm.VerlinkteDokumentIds), AktuellerBenutzerId);
+            vm.InhaltHtml, vm.FreigabeModus,
+            vm.OeffentlichLesbar, vm.Druckverbot,
+            vm.VerlinkteDokumentIds), AktuellerBenutzerId);
         TempData["Erfolg"] = "Dokument angelegt.";
         return RedirectToAction(nameof(Details), new { id });
     }

@@ -17,13 +17,31 @@ public class DokumentService : IDokumentService
         _audit = audit;
     }
 
-    public async Task<IEnumerable<DokumentListeDto>> GetAlleAsync(DokumentFilterDto filter)
+    public async Task<IEnumerable<DokumentListeDto>> GetAlleAsync(DokumentFilterDto filter, BerechtigungsKontext kontext)
     {
         var query = _db.Dokumente
             .Include(d => d.Kapitel).ThenInclude(k => k.ElternKapitel)
             .Include(d => d.VerantwortlicherBereich)
             .Include(d => d.GeaendertVon)
             .AsQueryable();
+
+        // ACL: Admin oder Ersteller oder öffentlich lesbar oder explizit berechtigt
+        //      oder implizit durch Freigabe-Mitgliedschaft / Kenntnisnahme-Zuweisung.
+        if (!kontext.IstAdmin)
+        {
+            var userId = kontext.BenutzerId;
+            var rolle = kontext.Rolle;
+            query = query.Where(d =>
+                d.OeffentlichLesbar
+                || d.ErstelltVonId == userId
+                || d.Berechtigungen.Any(b =>
+                    b.BenutzerId == userId
+                    || (b.Rolle != null && b.Rolle == rolle)
+                    || (b.TeamId != null && _db.BenutzerTeams.Any(bt => bt.TeamId == b.TeamId && bt.BenutzerId == userId)))
+                || d.FreigabeGruppen.Any(g => g.Mitglieder.Any(m => m.BenutzerId == userId))
+                || d.Kenntnisnahmen.Any(kn => kn.BenutzerId == userId
+                    || (kn.TeamId != null && _db.BenutzerTeams.Any(bt => bt.TeamId == kn.TeamId && bt.BenutzerId == userId))));
+        }
 
         if (filter.NurGeloescht)
             query = query.Where(d => d.Geloescht);
@@ -116,6 +134,8 @@ public class DokumentService : IDokumentService
             Pruefterm = dto.Pruefterm,
             InhaltHtml = dto.InhaltHtml,
             FreigabeModus = dto.FreigabeModus,
+            OeffentlichLesbar = dto.OeffentlichLesbar,
+            Druckverbot = dto.Druckverbot,
             Status = DokumentStatus.Entwurf,
             ErstelltAm = DateTime.UtcNow,
             GeaendertAm = DateTime.UtcNow,
@@ -274,6 +294,24 @@ public class DokumentService : IDokumentService
             .Select(v => new VersionDto(v.Id, v.Versionsnummer, v.Titel, v.ErstelltAm,
                 v.ErstelltVon.Anzeigename, v.StatusZumZeitpunkt, v.AenderungsHinweis))
             .ToListAsync();
+
+    public async Task<bool> DarfLesenAsync(int dokumentId, BerechtigungsKontext kontext)
+    {
+        if (kontext.IstAdmin) return true;
+        var userId = kontext.BenutzerId;
+        var rolle = kontext.Rolle;
+        return await _db.Dokumente.AnyAsync(d =>
+            d.Id == dokumentId && (
+                d.OeffentlichLesbar
+                || d.ErstelltVonId == userId
+                || d.Berechtigungen.Any(b =>
+                    b.BenutzerId == userId
+                    || (b.Rolle != null && b.Rolle == rolle)
+                    || (b.TeamId != null && _db.BenutzerTeams.Any(bt => bt.TeamId == b.TeamId && bt.BenutzerId == userId)))
+                || d.FreigabeGruppen.Any(g => g.Mitglieder.Any(m => m.BenutzerId == userId))
+                || d.Kenntnisnahmen.Any(kn => kn.BenutzerId == userId
+                    || (kn.TeamId != null && _db.BenutzerTeams.Any(bt => bt.TeamId == kn.TeamId && bt.BenutzerId == userId)))));
+    }
 
     public async Task<IEnumerable<AuditDto>> GetAuditAsync(int dokumentId)
         => await _db.AuditEintraege

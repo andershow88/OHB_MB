@@ -503,6 +503,214 @@
             </div>
         </div>
 
+        @* ══ Berechtigungen (ACL) ══════════════════════════════════════════════ *@
+        @{
+            var berechtigungen = ViewBag.Berechtigungen as List<OhbPortal.Application.DTOs.BerechtigungDto> ?? new();
+        }
+        <div class="mc-card mt-4">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-shield-lock"></i> Berechtigungen</h2>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    @if (Model.OeffentlichLesbar)
+                    {
+                        <span class="mc-badge badge-success"><i class="bi bi-globe2"></i> Öffentlich lesbar</span>
+                    }
+                    else
+                    {
+                        <span class="mc-badge badge-warning"><i class="bi bi-lock"></i> Eingeschränkt</span>
+                    }
+                    @if (Model.Druckverbot)
+                    {
+                        <span class="mc-badge badge-danger"><i class="bi bi-printer-dash"></i> Druckverbot</span>
+                    }
+                </div>
+            </div>
+            <div class="mc-card-body">
+                @if (Model.OeffentlichLesbar)
+                {
+                    <div class="alert alert-info py-2 mb-3 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Dokument ist für alle authentifizierten Benutzer lesbar. Die untenstehenden
+                        Einträge wirken erst, wenn „Öffentlich lesbar" im Dokument-Edit abgeschaltet wird.
+                    </div>
+                }
+                @if (istEditor)
+                {
+                    <div style="background:var(--mc-bg); border:1px solid var(--mc-border); border-radius:var(--mc-radius); padding:.85rem 1rem; margin-bottom:1rem;">
+                        <div class="fw-semibold small mb-2" style="color:var(--mc-text-muted);">
+                            <i class="bi bi-plus-circle me-1"></i>Neue Berechtigung zuweisen
+                        </div>
+
+                        <ul class="nav nav-tabs mb-2" role="tablist" style="font-size:.85rem;">
+                            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#aclTabUser" type="button">Benutzer</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#aclTabTeam" type="button">Team</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#aclTabRolle" type="button">Rolle</button></li>
+                        </ul>
+
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="aclTabUser">
+                                <form asp-controller="Berechtigungen" asp-action="Hinzufuegen" method="post" class="row g-2 align-items-end">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                    <input type="hidden" name="zielTyp" value="benutzer" />
+                                    <div class="col-md-6">
+                                        <label class="form-label small mb-1">Benutzer</label>
+                                        <select name="benutzerId" class="form-select form-select-sm" required>
+                                            <option value="">– wählen –</option>
+                                            @foreach (var b in alleBenutzer)
+                                            {
+                                                int bid = (int)b.Id;
+                                                string banz = (string)b.Anzeigename;
+                                                <option value="@bid">@banz</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-1">Typ</label>
+                                        <select name="typ" class="form-select form-select-sm">
+                                            @foreach (BerechtigungsTyp t in Enum.GetValues<BerechtigungsTyp>())
+                                            {
+                                                <option value="@((int)t)">@t</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button class="btn-mc-primary w-100" style="font-size:.82rem; padding:.35rem .5rem;">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="tab-pane fade" id="aclTabTeam">
+                                <form asp-controller="Berechtigungen" asp-action="Hinzufuegen" method="post" class="row g-2 align-items-end">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                    <input type="hidden" name="zielTyp" value="team" />
+                                    <div class="col-md-6">
+                                        <label class="form-label small mb-1">Team</label>
+                                        <select name="teamId" class="form-select form-select-sm" required>
+                                            <option value="">– wählen –</option>
+                                            @foreach (var t in alleTeams)
+                                            {
+                                                int tid = (int)t.Id;
+                                                string tn = (string)t.Name;
+                                                <option value="@tid">@tn</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-1">Typ</label>
+                                        <select name="typ" class="form-select form-select-sm">
+                                            @foreach (BerechtigungsTyp t in Enum.GetValues<BerechtigungsTyp>())
+                                            {
+                                                <option value="@((int)t)">@t</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button class="btn-mc-primary w-100" style="font-size:.82rem; padding:.35rem .5rem;">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="tab-pane fade" id="aclTabRolle">
+                                <form asp-controller="Berechtigungen" asp-action="Hinzufuegen" method="post" class="row g-2 align-items-end">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                    <input type="hidden" name="zielTyp" value="rolle" />
+                                    <div class="col-md-6">
+                                        <label class="form-label small mb-1">Rolle</label>
+                                        <select name="rolle" class="form-select form-select-sm" required>
+                                            <option value="">– wählen –</option>
+                                            @foreach (Rolle r in Enum.GetValues<Rolle>())
+                                            {
+                                                <option value="@((int)r)">@r</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-1">Typ</label>
+                                        <select name="typ" class="form-select form-select-sm">
+                                            @foreach (BerechtigungsTyp t in Enum.GetValues<BerechtigungsTyp>())
+                                            {
+                                                <option value="@((int)t)">@t</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button class="btn-mc-primary w-100" style="font-size:.82rem; padding:.35rem .5rem;">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (!berechtigungen.Any())
+                {
+                    <p class="text-muted small mb-0">Keine expliziten Berechtigungen zugewiesen.</p>
+                }
+                else
+                {
+                    <table class="table table-sm mb-0" style="font-size:.85rem;">
+                        <thead>
+                            <tr>
+                                <th>Ziel</th>
+                                <th>Typ</th>
+                                @if (istEditor) { <th style="width:40px;"></th> }
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var b in berechtigungen)
+                        {
+                            <tr>
+                                <td>@b.ZielBeschreibung</td>
+                                <td>
+                                    @if (istEditor)
+                                    {
+                                        <form asp-controller="Berechtigungen" asp-action="TypAendern" method="post" class="d-flex gap-1">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@b.Id" />
+                                            <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                            <select name="typ" class="form-select form-select-sm" onchange="this.form.submit()" style="width:140px; font-size:.78rem;">
+                                                @foreach (BerechtigungsTyp t in Enum.GetValues<BerechtigungsTyp>())
+                                                {
+                                                    if (b.Typ == t) { <option value="@((int)t)" selected>@t</option> }
+                                                    else { <option value="@((int)t)">@t</option> }
+                                                }
+                                            </select>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span class="mc-badge badge-secondary">@b.Typ</span>
+                                    }
+                                </td>
+                                @if (istEditor)
+                                {
+                                    <td>
+                                        <form asp-controller="Berechtigungen" asp-action="Entfernen" method="post"
+                                              onsubmit="return confirm('Berechtigung entfernen?');" style="display:inline;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@b.Id" />
+                                            <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                            <button class="btn-link p-0 border-0" style="background:none; color:var(--mc-danger); line-height:1;" title="Entfernen">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
         <!-- Versionen + Audit-Timeline -->
         <div class="row g-3 mt-1">
             <div class="col-md-6">

@@ -5,8 +5,9 @@ namespace OhbPortal.Application.Interfaces;
 
 public interface IDokumentService
 {
-    Task<IEnumerable<DokumentListeDto>> GetAlleAsync(DokumentFilterDto filter);
+    Task<IEnumerable<DokumentListeDto>> GetAlleAsync(DokumentFilterDto filter, BerechtigungsKontext kontext);
     Task<DokumentDetailDto?> GetDetailAsync(int id);
+    Task<bool> DarfLesenAsync(int dokumentId, BerechtigungsKontext kontext);
     Task<int> ErstellenAsync(DokumentErstellenDto dto, int benutzerId);
     Task AktualisierenAsync(int id, DokumentBearbeitenDto dto, int benutzerId, string? aenderungshinweis = null);
     Task StatusAendernAsync(int id, DokumentStatus neuerStatus, int benutzerId, string? notiz = null);
@@ -58,6 +59,15 @@ public interface IKenntnisnahmeService
     Task<IEnumerable<KenntnisnahmeOffenDto>> GetMeineOffenenAsync(int benutzerId);
 }
 
+public interface IBerechtigungService
+{
+    Task<IEnumerable<BerechtigungDto>> GetProDokumentAsync(int dokumentId);
+    Task<int> HinzufuegenAsync(int dokumentId, int? benutzerId, int? teamId, Rolle? rolle,
+        BerechtigungsTyp typ, int handelnderBenutzerId);
+    Task EntfernenAsync(int id, int handelnderBenutzerId);
+    Task TypAendernAsync(int id, BerechtigungsTyp typ, int handelnderBenutzerId);
+}
+
 public interface IAnhangService
 {
     Task<int> HochladenAsync(int dokumentId, Stream inhalt, string dateiname, string contentType, long laenge, int benutzerId);
@@ -73,5 +83,5 @@ public interface IAuditService
 public interface IDashboardService
 {
     Task<DashboardDto> GetAsync(int benutzerId);
-    Task<DashboardDto> GetAsync(int benutzerId, bool nurAktuellSichtbare);
+    Task<DashboardDto> GetAsync(int benutzerId, bool nurAktuellSichtbare, BerechtigungsKontext kontext);
 }
