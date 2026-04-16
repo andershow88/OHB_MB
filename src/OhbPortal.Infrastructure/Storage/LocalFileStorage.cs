@@ -19,9 +19,11 @@ public class LocalFileStorage : IFileStorage
 
     public async Task<string> SpeichernAsync(Stream inhalt, string dateiname, string subordner, CancellationToken ct = default)
     {
-        var safeOrdner = Sanitize(subordner);
+        var safeOrdner = string.Join('/', subordner.Split('/', '\\', StringSplitOptions.RemoveEmptyEntries)
+            .Select(Sanitize));
         var safeName = Sanitize(dateiname);
-        var ordnerPfad = Path.Combine(_rootPath, safeOrdner);
+        var ordnerPfad = Path.Combine(_rootPath,
+            safeOrdner.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(ordnerPfad);
 
         var endgueltigName = $"{Guid.NewGuid():N}_{safeName}";
@@ -30,7 +32,7 @@ public class LocalFileStorage : IFileStorage
         await using var datei = File.Create(vollerPfad);
         await inhalt.CopyToAsync(datei, ct);
 
-        return Path.Combine(safeOrdner, endgueltigName).Replace('\\', '/');
+        return $"{safeOrdner}/{endgueltigName}";
     }
 
     public Task<Stream> LadenAsync(string speicherSchluessel, CancellationToken ct = default)

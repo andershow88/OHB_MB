@@ -17,19 +17,22 @@ public class DokumenteController : BaseController
     private readonly IKenntnisnahmeService _kn;
     private readonly IAnhangService _anhang;
     private readonly IApplicationDbContext _db;
+    private readonly IFileStorage _fileStorage;
 
     public DokumenteController(
         IDokumentService svc,
         IFreigabeService freigabe,
         IKenntnisnahmeService kn,
         IAnhangService anhang,
-        IApplicationDbContext db)
+        IApplicationDbContext db,
+        IFileStorage fileStorage)
     {
         _svc = svc;
         _freigabe = freigabe;
         _kn = kn;
         _anhang = anhang;
         _db = db;
+        _fileStorage = fileStorage;
     }
 
     public async Task<IActionResult> Index(string? q, int? kapitelId, DokumentStatus? status,
@@ -181,6 +184,23 @@ public class DokumenteController : BaseController
         await _kn.BestaetigenAsync(kenntnisnahmeId, AktuellerBenutzerId);
         TempData["Erfolg"] = "Kenntnisnahme bestätigt.";
         return RedirectToAction(nameof(Details), new { id = dokumentId });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> BildHochladen(IFormFile datei, int? dokumentId)
+    {
+        if (!IstEditor) return Forbid();
+        if (datei is null || datei.Length == 0)
+            return Json(new { error = "Keine Datei übertragen." });
+        if (!datei.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            return Json(new { error = "Nur Bilddateien erlaubt." });
+        if (datei.Length > 10 * 1024 * 1024)
+            return Json(new { error = "Bild zu groß (max. 10 MB)." });
+
+        var ordner = dokumentId.HasValue ? $"dok_{dokumentId}/inline" : "inline_temp";
+        await using var stream = datei.OpenReadStream();
+        var key = await _fileStorage.SpeichernAsync(stream, datei.FileName, ordner);
+        return Json(new { url = $"/uploads/{key}" });
     }
 
     [HttpPost, ValidateAntiForgeryToken]

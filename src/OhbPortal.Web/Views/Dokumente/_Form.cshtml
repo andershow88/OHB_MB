@@ -1,6 +1,27 @@
 @model OhbPortal.Web.ViewModels.DokumentBearbeitenViewModel
 @Html.AntiForgeryToken()
 
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
+<style>
+    .ql-toolbar.ql-snow, .ql-container.ql-snow { border-color: var(--mc-border); }
+    .ql-editor { min-height: 440px; font-size: .95rem; line-height: 1.6; color: var(--mc-text); background: var(--mc-bg-card); }
+    .ql-editor h1 { font-size: 1.45rem; margin-top: 1.4rem; }
+    .ql-editor h2 { font-size: 1.15rem; margin-top: 1.2rem; }
+    .ql-editor h3 { font-size: 1rem; margin-top: 1rem; }
+    .ql-editor h4 { font-size: .92rem; margin-top: .9rem; }
+    .ql-editor img { max-width: 100%; height: auto; border-radius: 6px; margin: .5rem 0; }
+    .ql-editor blockquote { border-left: 3px solid var(--mc-gold); background: var(--mc-bg); padding: .6rem .95rem; border-radius: 6px; }
+    .ql-editor code { background: rgba(0,0,0,.06); padding: .1em .35em; border-radius: 4px; font-size: .88em; }
+    .ql-toolbar .ql-stroke { stroke: var(--mc-text); }
+    .ql-toolbar .ql-fill { fill: var(--mc-text); }
+    .ql-toolbar .ql-picker-label, .ql-toolbar .ql-picker-item { color: var(--mc-text); }
+    [data-theme="dark"] .ql-toolbar.ql-snow { background: var(--mc-bg); }
+    [data-theme="dark"] .ql-container.ql-snow { background: var(--mc-bg-card); }
+    [data-theme="dark"] .ql-picker-options { background: var(--mc-bg-card); border-color: var(--mc-border); }
+    [data-theme="dark"] .ql-tooltip { background: var(--mc-bg-card) !important; color: var(--mc-text) !important; border-color: var(--mc-border) !important; }
+    [data-theme="dark"] .ql-tooltip input { background: var(--mc-bg); color: var(--mc-text); border-color: var(--mc-border); }
+</style>
+
 <div class="row g-4">
     <div class="col-lg-8">
         <div class="mc-card">
@@ -19,8 +40,11 @@
                 <div class="mb-3">
                     <label asp-for="InhaltHtml" class="form-label fw-semibold"></label>
                     <input type="hidden" asp-for="InhaltHtml" id="InhaltHtmlHidden" />
-                    <div id="editor" style="background:var(--mc-bg-card); color:var(--mc-text); border-radius:var(--mc-radius); min-height:360px;"></div>
-                    <div class="small text-muted mt-1">Tipp: Überschriften für Struktur nutzen; Links via Symbolleiste.</div>
+                    <div id="ohb-editor"></div>
+                    <div class="small text-muted mt-1">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Überschriften für Struktur nutzen · Bilder per <i class="bi bi-image"></i> einfügen (bis 10 MB) · Ctrl/Cmd+B für Fett · Ctrl/Cmd+I für Kursiv
+                    </div>
                 </div>
             </div>
         </div>
@@ -102,7 +126,10 @@
                         }
                     </select>
                 </div>
-                <div class="small text-muted">Gruppen &amp; Mitglieder werden in einem späteren Release direkt pflegbar. Aktuell: siehe Seed-Daten für Beispiel.</div>
+                <div class="small text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Gruppen und Mitglieder werden nach dem Speichern im Dokument-Details unter „Freigabe-Konfiguration" gepflegt.
+                </div>
             </div>
         </div>
 
@@ -141,38 +168,81 @@
     <a asp-action="Index" class="btn-mc-ghost">Abbrechen</a>
 </div>
 
-@section Scripts {
-<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
 <script>
-    const quill = new Quill('#editor', {
-        modules: {
-            toolbar: [
-                [{ header: [1, 2, 3, false] }],
-                ['bold', 'italic', 'underline'],
-                [{ list: 'ordered' }, { list: 'bullet' }],
-                ['blockquote', 'code-block'],
-                ['link'],
-                ['clean']
-            ]
-        },
-        theme: 'snow',
-        placeholder: 'Inhalt hier erfassen …'
-    });
-    const hidden = document.getElementById('InhaltHtmlHidden');
-    if (hidden.value) quill.root.innerHTML = hidden.value;
-    document.querySelector('form').addEventListener('submit', () => {
-        hidden.value = quill.root.innerHTML;
-    });
+    (function () {
+        const dokumentId = @(Model.Id?.ToString() ?? "null");
+        const hidden = document.getElementById('InhaltHtmlHidden');
+        const initial = hidden.value || '';
+
+        const toolbarOptions = [
+            [{ header: [1, 2, 3, 4, false] }],
+            [{ font: [] }],
+            [{ size: ['small', false, 'large', 'huge'] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ color: [] }, { background: [] }],
+            [{ align: [] }],
+            [{ list: 'ordered' }, { list: 'bullet' }, { list: 'check' }],
+            [{ indent: '-1' }, { indent: '+1' }],
+            ['blockquote', 'code-block'],
+            ['link', 'image', 'video'],
+            ['clean']
+        ];
+
+        const quill = new Quill('#ohb-editor', {
+            theme: 'snow',
+            placeholder: 'Inhalt hier erfassen …',
+            modules: {
+                toolbar: {
+                    container: toolbarOptions,
+                    handlers: {
+                        image: bildEinfuegen
+                    }
+                }
+            }
+        });
+
+        if (initial) quill.clipboard.dangerouslyPasteHTML(initial);
+
+        function antiForgeryToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+        }
+
+        async function bildEinfuegen() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.click();
+            input.onchange = async () => {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('Bild zu groß (max. 10 MB).');
+                    return;
+                }
+                const fd = new FormData();
+                fd.append('datei', file);
+                if (dokumentId) fd.append('dokumentId', dokumentId);
+                fd.append('__RequestVerificationToken', antiForgeryToken());
+
+                try {
+                    const resp = await fetch('/Dokumente/BildHochladen', { method: 'POST', body: fd });
+                    const data = await resp.json();
+                    if (data.error) { alert(data.error); return; }
+                    if (data.url) {
+                        const range = quill.getSelection(true);
+                        quill.insertEmbed(range.index, 'image', data.url, 'user');
+                        quill.setSelection(range.index + 1, 0);
+                    }
+                } catch (ex) {
+                    alert('Fehler beim Upload: ' + ex.message);
+                }
+            };
+        }
+
+        const form = document.querySelector('form');
+        form.addEventListener('submit', () => {
+            hidden.value = quill.root.innerHTML;
+        });
+    })();
 </script>
-<style>
-    .ql-toolbar.ql-snow, .ql-container.ql-snow {
-        border-color: var(--mc-border);
-    }
-    [data-theme="dark"] .ql-toolbar.ql-snow,
-    [data-theme="dark"] .ql-container.ql-snow { background: var(--mc-bg-card); color: var(--mc-text); }
-    [data-theme="dark"] .ql-snow .ql-stroke { stroke: var(--mc-text); }
-    [data-theme="dark"] .ql-snow .ql-fill { fill: var(--mc-text); }
-    [data-theme="dark"] .ql-snow .ql-picker-label { color: var(--mc-text); }
-</style>
-}
