@@ -109,19 +109,16 @@ public class FreigabeService : IFreigabeService
     public async Task<IEnumerable<OffeneFreigabeDto>> GetMeineOffenenAsync(int benutzerId)
     {
         return await _db.FreigabeGruppen
-            .Include(g => g.Dokument)
-            .Include(g => g.Mitglieder)
-            .Include(g => g.Zustimmungen)
             .Where(g => g.Mitglieder.Any(m => m.BenutzerId == benutzerId)
                      && g.Dokument.Status == DokumentStatus.InFreigabe
                      && !g.Zustimmungen.Any(z => z.BenutzerId == benutzerId
                          && z.Entscheidung != FreigabeEntscheidung.Ausstehend))
+            .OrderByDescending(g => g.Dokument.GeaendertAm)
             .Select(g => new OffeneFreigabeDto(
                 g.Id, g.DokumentId, g.Dokument.Titel,
                 g.Bezeichnung, g.BenoetigteZustimmungen,
                 g.Zustimmungen.Count(z => z.Entscheidung == FreigabeEntscheidung.Zugestimmt),
                 g.Dokument.GeaendertAm))
-            .OrderByDescending(o => o.DokumentGeaendertAm)
             .ToListAsync();
     }
 
