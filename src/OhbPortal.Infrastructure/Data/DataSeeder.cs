@@ -20,6 +20,11 @@ public static class DataSeeder
             await SeedKapitelAsync(db);
         if (!await db.Dokumente.AnyAsync())
             await SeedBeispielDokumentAsync(db);
+
+        // Nachträglich einspielbare Richtlinien/Strategie aus importierten PDFs
+        // (Personendaten anonymisiert). Nur wenn noch nicht vorhanden.
+        if (!await db.Dokumente.AnyAsync(d => d.Titel.Contains("Minimales-Risiko")))
+            await SeedImportierteRichtlinienAsync(db);
     }
 
     private static string Hash(string s)
@@ -242,5 +247,185 @@ public static class DataSeeder
             new AuditEintrag { DokumentId = dok.Id, BenutzerId = editor.Id, Typ = AuditTyp.VersionAngelegt, Beschreibung = "Version 2", Zeitpunkt = DateTime.UtcNow.AddDays(-1) },
             new AuditEintrag { DokumentId = dok.Id, BenutzerId = editor.Id, Typ = AuditTyp.FreigabeGestartet, Beschreibung = "Workflow mit 2 Gruppen gestartet", Zeitpunkt = DateTime.UtcNow.AddHours(-3) });
         await db.SaveChangesAsync();
+    }
+
+    private static async Task SeedImportierteRichtlinienAsync(ApplicationDbContext db)
+    {
+        var pwd = Hash("Demo1234!");
+
+        async Task<Benutzer> EnsureUser(string un, string anz, Rolle r)
+        {
+            var u = await db.Benutzer.FirstOrDefaultAsync(b => b.Benutzername == un);
+            if (u is null)
+            {
+                u = new Benutzer
+                {
+                    Benutzername = un,
+                    PasswortHash = pwd,
+                    Anzeigename = anz,
+                    EMail = $"{un}@ohb.local",
+                    Rolle = r
+                };
+                db.Benutzer.Add(u);
+                await db.SaveChangesAsync();
+            }
+            return u;
+        }
+
+        var mustermann = await EnsureUser("m.mustermann", "Max Mustermann", Rolle.Editor);
+        var schmidt = await EnsureUser("h.schmidt", "Hans Schmidt", Rolle.Bereichsverantwortlicher);
+        var weber = await EnsureUser("t.weber", "Thomas Weber", Rolle.Editor);
+
+        var risikoSteuerung = await db.Kapitel
+            .FirstAsync(k => k.Titel == "Unternehmens- und Risikosteuerung" && k.ElternKapitelId == null);
+        var strategien = await db.Kapitel
+            .FirstOrDefaultAsync(k => k.Titel == "Strategien" && k.ElternKapitelId == risikoSteuerung.Id);
+        if (strategien is null)
+        {
+            strategien = new Kapitel
+            {
+                Titel = "Strategien",
+                Icon = "bi-compass",
+                Sortierung = 0,
+                ElternKapitelId = risikoSteuerung.Id
+            };
+            db.Kapitel.Add(strategien);
+            await db.SaveChangesAsync();
+        }
+
+        var unternehmensentwicklung = await db.Kapitel
+            .Include(k => k.ElternKapitel)
+            .FirstAsync(k => k.Titel == "Unternehmensentwicklung"
+                && k.ElternKapitel != null
+                && k.ElternKapitel.Titel == "Sachgebiete / Anweisungen");
+
+        var teamUE = await db.Teams.FirstOrDefaultAsync(t => t.Name == "Unternehmensentwicklung");
+
+        async Task Anlegen(
+            string titel,
+            string? kurz,
+            int kapitelId,
+            int? bereichId,
+            string kategorie,
+            string tags,
+            Benutzer autor,
+            DateTime stand,
+            string? aenderungsNotiz,
+            string inhaltHtml)
+        {
+            var d = new Dokument
+            {
+                Titel = titel,
+                Kurzbeschreibung = kurz,
+                InhaltHtml = inhaltHtml,
+                KapitelId = kapitelId,
+                VerantwortlicherBereichId = bereichId,
+                Status = DokumentStatus.Freigegeben,
+                ErstelltVonId = autor.Id,
+                GeaendertVonId = autor.Id,
+                Kategorie = kategorie,
+                Tags = tags,
+                ErstelltAm = stand.AddDays(-1),
+                GeaendertAm = stand,
+                AktuelleVersion = 1,
+                FreigabeModus = FreigabeModus.Keine,
+                OeffentlichLesbar = true,
+                SichtbarAb = stand.AddDays(-1),
+                Pruefterm = stand.AddYears(1)
+            };
+            db.Dokumente.Add(d);
+            await db.SaveChangesAsync();
+
+            db.DokumentVersionen.Add(new DokumentVersion
+            {
+                DokumentId = d.Id,
+                Versionsnummer = 1,
+                Titel = d.Titel,
+                Kurzbeschreibung = d.Kurzbeschreibung,
+                InhaltHtml = d.InhaltHtml,
+                StatusZumZeitpunkt = d.Status,
+                ErstelltAm = stand,
+                ErstelltVonId = autor.Id,
+                AenderungsHinweis = aenderungsNotiz
+            });
+
+            db.AuditEintraege.Add(new AuditEintrag
+            {
+                DokumentId = d.Id,
+                BenutzerId = autor.Id,
+                Typ = AuditTyp.DokumentErstellt,
+                Beschreibung = "Import aus PDF (anonymisiert)",
+                Zeitpunkt = stand.AddDays(-1)
+            });
+            db.AuditEintraege.Add(new AuditEintrag
+            {
+                DokumentId = d.Id,
+                BenutzerId = autor.Id,
+                Typ = AuditTyp.VersionAngelegt,
+                Beschreibung = "Version 1",
+                Zeitpunkt = stand.AddDays(-1)
+            });
+            await db.SaveChangesAsync();
+        }
+
+        await Anlegen(
+            "Richtlinie für den Einsatz von Künstlicher Intelligenz (KI) – Minimales-Risiko-Anwendungsfälle",
+            "Grundsätze für den Einsatz von Minimales-Risiko-KI-Systemen gemäß EU AI Act.",
+            unternehmensentwicklung.Id,
+            teamUE?.Id,
+            "Richtlinie",
+            "ki,ai,minimales-risiko,eu-ai-act,richtlinie",
+            mustermann,
+            new DateTime(2025, 4, 14),
+            "Neuerstellung im Rahmen des LeasiNetWeb-Projekts",
+            ImportierteRichtlinienDaten.KiRichtlinieHtml);
+
+        await Anlegen(
+            "IT-/DOR-Strategie",
+            "Strategische Ausrichtung der IT und der digitalen operationalen Resilienz gemäß DORA und MaRisk.",
+            strategien.Id,
+            teamUE?.Id,
+            "Strategie",
+            "it,dor,strategie,dora,marisk,resilienz",
+            schmidt,
+            new DateTime(2026, 1, 28),
+            "Tz 3.1: Erweiterungen IT-Kompetenzen · Tz 3.4: erweiterte Budgets DOR · Tz 6.1: Ergänzungen Risiko-/Auswirkungstoleranz",
+            ImportierteRichtlinienDaten.ItDorStrategieHtml);
+
+        await Anlegen(
+            "Richtlinie für Eigenprogrammierungen",
+            "Vorgaben zu Anforderungsprozess, Entwicklung, Test, Abnahme und Betrieb von Eigenanwendungen.",
+            unternehmensentwicklung.Id,
+            teamUE?.Id,
+            "Richtlinie",
+            "eigenprogrammierung,entwicklung,release,test,abnahme",
+            mustermann,
+            new DateTime(2024, 10, 14),
+            "zu 1.2.1 Packages/nuget · zu 1.3.1 Tests/Testdokumentation · zu 1.6 Sonstiges neu aufgenommen",
+            ImportierteRichtlinienDaten.EigenprogrammierungenHtml);
+
+        await Anlegen(
+            "Richtlinie für RPA Entwicklungen",
+            "Vorgaben für die Umsetzung von Robotic-Process-Automation-Prozessen mit UiPath.",
+            unternehmensentwicklung.Id,
+            teamUE?.Id,
+            "Richtlinie",
+            "rpa,uipath,robotic-process-automation,automatisierung",
+            weber,
+            new DateTime(2022, 12, 14),
+            "Neuerstellung der Geschäftsanweisung",
+            ImportierteRichtlinienDaten.RpaRichtlinieHtml);
+
+        await Anlegen(
+            "Richtlinie für Entwicklung und Hosting von Anwendungen durch externe Dritte",
+            "Anforderungen an Beauftragung, Entwicklung, Hosting, Test, Abnahme und Betrieb durch externe Dienstleister.",
+            unternehmensentwicklung.Id,
+            teamUE?.Id,
+            "Richtlinie",
+            "externe-entwicklung,hosting,dienstleister,auslagerung",
+            mustermann,
+            new DateTime(2023, 7, 7),
+            "Neuerstellung",
+            ImportierteRichtlinienDaten.ExterneEntwicklungHtml);
     }
 }
