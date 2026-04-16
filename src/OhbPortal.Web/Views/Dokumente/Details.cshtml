@@ -1,0 +1,377 @@
+@model OhbPortal.Application.DTOs.DokumentDetailDto
+@{
+    ViewData["Title"] = Model.Titel;
+    var versionen = ViewBag.Versionen as List<OhbPortal.Application.DTOs.VersionDto> ?? new();
+    var audit = ViewBag.Audit as List<OhbPortal.Application.DTOs.AuditDto> ?? new();
+    var freigaben = ViewBag.Freigaben as List<OhbPortal.Application.DTOs.FreigabeGruppeDto> ?? new();
+    var kn = ViewBag.Kenntnisnahmen as List<OhbPortal.Application.DTOs.KenntnisnahmeDto> ?? new();
+    bool istEditor = User.IsInRole("Editor") || User.IsInRole("Admin") || User.IsInRole("Bereichsverantwortlicher");
+    bool istApprover = User.IsInRole("Approver") || User.IsInRole("Admin");
+    int meineBenutzerId = int.TryParse(User.FindFirst("BenutzerId")?.Value, out var bId) ? bId : 0;
+}
+
+<div class="mc-page-header">
+    <div>
+        <div style="font-size:0.82rem; color:var(--mc-text-muted); margin-bottom:0.4rem;">
+            <a asp-action="Index" style="color:var(--mc-primary);">Dokumente</a>
+            <span style="margin:0 .4rem;">/</span>
+            <span>@Model.KapitelPfad</span>
+        </div>
+        <h1 class="mc-page-title" style="font-size:1.25rem;">
+            <i class="bi bi-file-earmark-text me-2"></i>@Model.Titel
+            <span class="mc-badge @StatusBadgeClass(Model.Status) ms-2">@Model.Status</span>
+            <span class="mc-badge badge-secondary ms-1">v@(Model.AktuelleVersion)</span>
+            @if (Model.Archiviert) { <span class="mc-badge badge-secondary ms-1"><i class="bi bi-archive"></i> archiviert</span> }
+            @if (Model.Geloescht) { <span class="mc-badge badge-danger ms-1"><i class="bi bi-trash"></i> Papierkorb</span> }
+        </h1>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        @if (istEditor && !Model.Geloescht && !Model.Archiviert)
+        {
+            <a asp-action="Bearbeiten" asp-route-id="@Model.Id" class="btn-mc-primary">
+                <i class="bi bi-pencil me-1"></i>Bearbeiten
+            </a>
+        }
+        @if (istEditor && Model.Status == DokumentStatus.Entwurf && Model.FreigabeModus != FreigabeModus.Keine)
+        {
+            <form asp-action="FreigabeStarten" asp-route-id="@Model.Id" method="post">
+                @Html.AntiForgeryToken()
+                <button class="btn-mc-ghost" style="border-color:var(--mc-gold); color:var(--mc-gold);">
+                    <i class="bi bi-play-circle me-1"></i>Freigabe starten
+                </button>
+            </form>
+        }
+        @if ((istApprover || User.IsInRole("Admin")) && !Model.Archiviert && Model.Status == DokumentStatus.Freigegeben)
+        {
+            <form asp-action="Archivieren" asp-route-id="@Model.Id" method="post">
+                @Html.AntiForgeryToken()
+                <button class="btn-mc-ghost"><i class="bi bi-archive me-1"></i>Archivieren</button>
+            </form>
+        }
+        @if ((Model.Archiviert || Model.Geloescht) && (istApprover || User.IsInRole("Admin")))
+        {
+            <form asp-action="Wiederherstellen" asp-route-id="@Model.Id" method="post">
+                @Html.AntiForgeryToken()
+                <button class="btn-mc-ghost"><i class="bi bi-arrow-counterclockwise me-1"></i>Wiederherstellen</button>
+            </form>
+        }
+        @if (istEditor && !Model.Geloescht)
+        {
+            <form asp-action="InPapierkorb" asp-route-id="@Model.Id" method="post"
+                  onsubmit="return confirm('Dokument in Papierkorb verschieben?');">
+                @Html.AntiForgeryToken()
+                <button class="btn-mc-ghost" style="color:var(--mc-danger);">
+                    <i class="bi bi-trash me-1"></i>In Papierkorb
+                </button>
+            </form>
+        }
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Hauptinhalt -->
+    <div class="col-lg-8">
+        <div class="mc-card">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-text-paragraph"></i> Inhalt</h2>
+            </div>
+            <div class="mc-card-body" style="@(Model.Druckverbot ? "-webkit-user-select:none;user-select:none;" : "")">
+                @if (!string.IsNullOrEmpty(Model.Kurzbeschreibung))
+                {
+                    <p class="text-muted" style="font-size:.9rem;">@Model.Kurzbeschreibung</p>
+                }
+                <div class="ohb-richtext">
+                    @Html.Raw(Model.InhaltHtml ?? "<p class='text-muted'>Kein Inhalt erfasst.</p>")
+                </div>
+            </div>
+        </div>
+
+        <!-- Freigaben -->
+        <div class="mc-card mt-4">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-check2-square"></i> Freigaben</h2>
+                <span class="small text-muted">
+                    Modus: @Model.FreigabeModus @(Model.FreigabeModus == FreigabeModus.Gruppen ? $"({Model.FreigabeReihenfolge})" : "")
+                </span>
+            </div>
+            <div class="mc-card-body">
+                @if (!freigaben.Any())
+                {
+                    <p class="text-muted small mb-0">Keine Freigabegruppen konfiguriert.</p>
+                }
+                else
+                {
+                    foreach (var g in freigaben)
+                    {
+                        var istMitglied = g.Mitglieder.Any(); // Info-Anzeige; Zustimmen-Endpoint prüft serverseitig
+                        <div style="border:1px solid var(--mc-border); border-radius:var(--mc-radius); padding:1rem; margin-bottom:.75rem;">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <strong>@g.Bezeichnung</strong>
+                                <span class="mc-badge @GesamtBadge(g.Gesamtstatus)">@g.Gesamtstatus</span>
+                                <span class="small text-muted ms-auto">
+                                    @g.Zustimmungen.Count(z => z.Entscheidung == FreigabeEntscheidung.Zugestimmt)
+                                    / @g.BenoetigteZustimmungen Zustimmungen
+                                </span>
+                            </div>
+                            <div class="small text-muted mb-2">Mitglieder: @string.Join(", ", g.Mitglieder)</div>
+                            @foreach (var z in g.Zustimmungen)
+                            {
+                                <div class="small" style="padding:.2rem 0; border-top:1px dashed var(--mc-border);">
+                                    <span class="mc-badge @GesamtBadge(z.Entscheidung)">@z.Entscheidung</span>
+                                    <strong>@z.Benutzer</strong>
+                                    @if (z.EntschiedenAm.HasValue) { <span class="text-muted">· @z.EntschiedenAm.Value.ToString("dd.MM.yyyy HH:mm")</span> }
+                                    @if (!string.IsNullOrEmpty(z.Kommentar)) { <div class="text-muted ms-4">„@z.Kommentar"</div> }
+                                </div>
+                            }
+                            @if (Model.Status == DokumentStatus.InFreigabe)
+                            {
+                                <form asp-action="FreigabeZustimmen" method="post" class="mt-2 d-flex gap-2">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                    <input type="hidden" name="freigabeGruppeId" value="@g.Id" />
+                                    <input type="text" name="kommentar" class="form-control form-control-sm" placeholder="Kommentar (optional)" />
+                                    <button type="submit" class="btn-mc-ghost" style="border-color:var(--mc-success); color:var(--mc-success);">
+                                        <i class="bi bi-check2"></i> Zustimmen
+                                    </button>
+                                    <button type="submit" formaction="@Url.Action("FreigabeAblehnen")" class="btn-mc-ghost" style="color:var(--mc-danger);">
+                                        <i class="bi bi-x-lg"></i> Ablehnen
+                                    </button>
+                                </form>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Kenntnisnahmen -->
+        <div class="mc-card mt-4">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-eye"></i> Kenntnisnahmen</h2>
+            </div>
+            <div class="mc-card-body">
+                @if (!kn.Any())
+                {
+                    <p class="text-muted small mb-0">Keine Kenntnisnahmen zugewiesen.</p>
+                }
+                else
+                {
+                    <table class="table table-sm mb-0" style="font-size:.85rem;">
+                        <thead>
+                            <tr><th>Ziel</th><th>Status</th><th>Fällig</th><th>Bestätigt</th></tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var k in kn)
+                        {
+                            <tr>
+                                <td>@k.Ziel</td>
+                                <td>
+                                    <span class="mc-badge @(k.Status == KenntnisnahmeStatus.Bestaetigt ? "badge-success" : "badge-warning")">
+                                        @k.Status
+                                    </span>
+                                </td>
+                                <td>@(k.Faelligkeit?.ToString("dd.MM.yyyy") ?? "–")</td>
+                                <td>
+                                    @if (k.BestaetigtAm.HasValue) { <span>@k.BestaetigtAm.Value.ToString("dd.MM.yyyy") – @k.BestaetigtVon</span> }
+                                    else { <span class="text-muted">–</span> }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+        <!-- Versionen + Audit-Timeline -->
+        <div class="row g-3 mt-1">
+            <div class="col-md-6">
+                <div class="mc-card">
+                    <div class="mc-card-header">
+                        <h2 class="mc-card-title"><i class="bi bi-layers"></i> Versionen</h2>
+                    </div>
+                    <div class="mc-card-body" style="padding:0;">
+                        <ul class="list-unstyled mb-0">
+                        @foreach (var v in versionen)
+                        {
+                            <li style="padding:.6rem 1rem; border-bottom:1px solid var(--mc-border);">
+                                <div class="d-flex align-items-center gap-2">
+                                    <code>v@(v.Versionsnummer)</code>
+                                    <span class="mc-badge @StatusBadgeClass(v.StatusZumZeitpunkt)" style="font-size:.65rem;">@v.StatusZumZeitpunkt</span>
+                                    <span class="ms-auto small text-muted">@v.ErstelltAm.ToString("dd.MM.yyyy HH:mm")</span>
+                                </div>
+                                <div class="small">@v.ErstelltVon</div>
+                                @if (!string.IsNullOrEmpty(v.AenderungsHinweis)) { <div class="small text-muted">„@v.AenderungsHinweis"</div> }
+                            </li>
+                        }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mc-card">
+                    <div class="mc-card-header">
+                        <h2 class="mc-card-title"><i class="bi bi-clock-history"></i> Änderungsverlauf</h2>
+                    </div>
+                    <div class="mc-card-body" style="padding:0; max-height:400px; overflow-y:auto;">
+                        <ul class="list-unstyled mb-0">
+                        @foreach (var a in audit)
+                        {
+                            <li style="padding:.5rem 1rem; border-bottom:1px solid var(--mc-border); font-size:.82rem;">
+                                <div class="d-flex gap-2">
+                                    <i class="bi bi-circle-fill" style="color:var(--mc-gold); font-size:.5rem; margin-top:.4rem;"></i>
+                                    <div style="flex:1;">
+                                        <strong>@a.Typ</strong>
+                                        <span class="ms-2 text-muted">@a.Zeitpunkt.ToString("dd.MM.yyyy HH:mm")</span>
+                                        <div class="small text-muted">@a.Benutzer @(string.IsNullOrEmpty(a.Beschreibung) ? "" : " · " + a.Beschreibung)</div>
+                                    </div>
+                                </div>
+                            </li>
+                        }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seitenleiste: Metadaten + Anhänge -->
+    <div class="col-lg-4">
+        <div class="mc-card">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-info-circle"></i> Metadaten</h2>
+            </div>
+            <div class="mc-card-body">
+                <dl class="row mb-0" style="font-size:.85rem;">
+                    <dt class="col-5 text-muted">Kapitel</dt><dd class="col-7">@Model.KapitelPfad</dd>
+                    <dt class="col-5 text-muted">Verantwortlich</dt><dd class="col-7">@(Model.VerantwortlicherBereich ?? "–")</dd>
+                    <dt class="col-5 text-muted">Kategorie</dt><dd class="col-7">@(Model.Kategorie ?? "–")</dd>
+                    <dt class="col-5 text-muted">Schlagworte</dt><dd class="col-7">@(Model.Tags ?? "–")</dd>
+                    <dt class="col-5 text-muted">Sichtbar ab</dt><dd class="col-7">@(Model.SichtbarAb?.ToString("dd.MM.yyyy") ?? "–")</dd>
+                    <dt class="col-5 text-muted">Sichtbar bis</dt><dd class="col-7">@(Model.SichtbarBis?.ToString("dd.MM.yyyy") ?? "–")</dd>
+                    <dt class="col-5 text-muted">Prüftermin</dt>
+                    <dd class="col-7">
+                        @if (Model.Pruefterm.HasValue)
+                        {
+                            var ueb = Model.Pruefterm.Value < DateTime.UtcNow;
+                            <span class="@(ueb ? "text-danger fw-semibold" : "")">@Model.Pruefterm.Value.ToString("dd.MM.yyyy")</span>
+                            if (ueb) { <span class="mc-badge badge-danger ms-1">überfällig</span> }
+                        }
+                        else { <span>–</span> }
+                    </dd>
+                    <dt class="col-5 text-muted">Erstellt</dt><dd class="col-7">@Model.ErstelltAm.ToString("dd.MM.yyyy") · @Model.ErstelltVon</dd>
+                    <dt class="col-5 text-muted">Geändert</dt><dd class="col-7">@Model.GeaendertAm.ToString("dd.MM.yyyy HH:mm") · @Model.GeaendertVon</dd>
+                </dl>
+                <hr style="border-color:var(--mc-border);" />
+                <div class="small">
+                    @if (Model.Druckverbot) { <div><i class="bi bi-printer-dash me-1 text-danger"></i> Druckverbot</div> }
+                    @if (!Model.OeffentlichLesbar) { <div><i class="bi bi-lock me-1"></i> Eingeschränkte Sichtbarkeit</div> }
+                    @if (Model.Druckverbot == false && Model.OeffentlichLesbar) { <div class="text-muted"><i class="bi bi-globe2 me-1"></i> Öffentlich lesbar, Druck erlaubt</div> }
+                </div>
+            </div>
+        </div>
+
+        <!-- Anhänge -->
+        <div class="mc-card mt-3">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-paperclip"></i> Anhänge (@Model.Anhaenge.Count)</h2>
+            </div>
+            <div class="mc-card-body">
+                @if (istEditor)
+                {
+                    <form asp-action="AnhangHochladen" method="post" enctype="multipart/form-data" class="mb-3">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="dokumentId" value="@Model.Id" />
+                        <div class="input-group input-group-sm">
+                            <input type="file" name="datei" class="form-control form-control-sm" required />
+                            <button class="btn-mc-primary" style="font-size:.78rem; padding:.2rem .5rem;">
+                                <i class="bi bi-upload"></i>
+                            </button>
+                        </div>
+                    </form>
+                }
+                @if (!Model.Anhaenge.Any())
+                {
+                    <p class="text-muted small mb-0">Keine Anhänge.</p>
+                }
+                else
+                {
+                    <ul class="list-unstyled mb-0">
+                    @foreach (var a in Model.Anhaenge)
+                    {
+                        <li style="padding:.45rem 0; border-bottom:1px solid var(--mc-border); font-size:.82rem;">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-file-earmark" style="color:var(--mc-text-muted);"></i>
+                                <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;">@a.Dateiname</div>
+                                <a asp-action="AnhangHerunterladen" asp-route-anhangId="@a.Id" class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .45rem;">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                @if (istEditor)
+                                {
+                                    <form asp-action="AnhangLoeschen" method="post" style="display:inline;"
+                                          onsubmit="return confirm('Anhang löschen?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="anhangId" value="@a.Id" />
+                                        <input type="hidden" name="dokumentId" value="@Model.Id" />
+                                        <button type="submit" class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .45rem; color:var(--mc-danger);">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                            <div class="small text-muted">
+                                @(a.Bytes / 1024) KB · @a.HochgeladenVon · @a.HochgeladenAm.ToString("dd.MM.yyyy")
+                            </div>
+                        </li>
+                    }
+                    </ul>
+                }
+            </div>
+        </div>
+
+        @if (Model.Verlinkungen.Any())
+        {
+            <div class="mc-card mt-3">
+                <div class="mc-card-header">
+                    <h2 class="mc-card-title"><i class="bi bi-link-45deg"></i> Verlinkte Dokumente</h2>
+                </div>
+                <div class="mc-card-body">
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var l in Model.Verlinkungen)
+                        {
+                            <li><a asp-action="Details" asp-route-id="@l.ZielDokumentId">@(l.Bezeichnung ?? l.ZielTitel)</a></li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .ohb-richtext h1, .ohb-richtext h2, .ohb-richtext h3 { color:var(--mc-text); margin-top:1.4rem; margin-bottom:.5rem; font-weight:700; }
+    .ohb-richtext h2 { font-size:1.05rem; }
+    .ohb-richtext h3 { font-size:.95rem; }
+    .ohb-richtext p, .ohb-richtext li { font-size:.92rem; line-height:1.6; }
+    .ohb-richtext blockquote { border-left:3px solid var(--mc-gold); padding:.5rem .9rem; background:var(--mc-bg); border-radius:6px; margin:.8rem 0; font-size:.88rem; }
+    .ohb-richtext code { background:rgba(0,0,0,.06); padding:.1em .35em; border-radius:4px; font-size:.88em; }
+    .ohb-richtext ul, .ohb-richtext ol { padding-left:1.2rem; }
+</style>
+
+@functions {
+    static string StatusBadgeClass(DokumentStatus s) => s switch
+    {
+        DokumentStatus.Entwurf => "badge-secondary",
+        DokumentStatus.InFreigabe => "badge-warning",
+        DokumentStatus.Freigegeben => "badge-success",
+        DokumentStatus.Abgelehnt => "badge-danger",
+        DokumentStatus.Archiviert => "badge-secondary",
+        _ => "badge-secondary"
+    };
+    static string GesamtBadge(FreigabeEntscheidung s) => s switch
+    {
+        FreigabeEntscheidung.Zugestimmt => "badge-success",
+        FreigabeEntscheidung.Abgelehnt => "badge-danger",
+        _ => "badge-warning"
+    };
+}

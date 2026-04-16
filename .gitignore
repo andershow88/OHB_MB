@@ -1,0 +1,26 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Uploads (werden per Volume gemountet)
+src/OhbPortal.Web/wwwroot/uploads/*
+!src/OhbPortal.Web/wwwroot/uploads/.gitkeep
+
+# IDE
+.vs/
+.idea/
+*.swp
+
+# Claude Code
+.claude/worktrees/

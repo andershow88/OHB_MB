@@ -1,0 +1,55 @@
+@model IEnumerable<OhbPortal.Application.DTOs.OffeneFreigabeDto>
+@{
+    ViewData["Title"] = "Meine Freigaben";
+}
+
+<div class="mc-page-header">
+    <div>
+        <h1 class="mc-page-title"><i class="bi bi-check2-square me-2"></i>Meine Freigaben</h1>
+        <p class="mc-page-subtitle">@Model.Count() Freigaben warten auf Ihre Entscheidung</p>
+    </div>
+</div>
+
+<div class="mc-card">
+    <div style="padding:0;">
+        @if (!Model.Any())
+        {
+            <div class="text-center py-5" style="color:var(--mc-text-muted);">
+                <i class="bi bi-emoji-smile" style="font-size:2rem;"></i>
+                <p class="mt-2 mb-0 small">Keine offenen Freigaben.</p>
+            </div>
+        }
+        else
+        {
+            <div class="mc-table-wrapper">
+                <table class="mc-table">
+                    <thead>
+                        <tr>
+                            <th>Dokument</th>
+                            <th>Gruppe</th>
+                            <th>Fortschritt</th>
+                            <th>Geändert</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var o in Model)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@o.DokumentTitel</td>
+                                <td>@o.GruppenBezeichnung</td>
+                                <td><code>@o.BereitsZugestimmt / @o.BenoetigteZustimmungen</code></td>
+                                <td class="small text-muted">@o.DokumentGeaendertAm.ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>
+                                    <a asp-controller="Dokumente" asp-action="Details" asp-route-id="@o.DokumentId" class="btn-mc-primary" style="font-size:.78rem; padding:.3rem .7rem;">
+                                        Öffnen <i class="bi bi-arrow-right"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

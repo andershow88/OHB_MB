@@ -1,0 +1,40 @@
+@model OhbPortal.Application.DTOs.KapitelBaumDto
+@{
+    bool istEditor = User.IsInRole("Editor") || User.IsInRole("Admin") || User.IsInRole("Bereichsverantwortlicher");
+}
+<li style="padding:.4rem 0; border-bottom:1px solid var(--mc-border);">
+    <div class="d-flex align-items-center gap-2" style="margin-left:@(Model.Tiefe * 24)px;">
+        <i class="bi @(Model.Icon ?? "bi-folder2")" style="color:var(--mc-gold); font-size:1rem;"></i>
+        <a asp-controller="Dokumente" asp-action="Index" asp-route-kapitelId="@Model.Id"
+           class="fw-semibold text-decoration-none" style="color:var(--mc-text);">
+            @Model.Titel
+        </a>
+        @if (Model.DokumentenAnzahl > 0)
+        {
+            <span class="mc-badge badge-secondary">@Model.DokumentenAnzahl</span>
+        }
+        <div class="ms-auto d-flex gap-1">
+            @if (istEditor)
+            {
+                <button class="btn-mc-ghost" style="font-size:.72rem; padding:.18rem .5rem;"
+                        data-bs-toggle="modal" data-bs-target="#kapitelModal"
+                        onclick="setElternId(@Model.Id)">
+                    <i class="bi bi-plus"></i> Unterkapitel
+                </button>
+            }
+            <a asp-controller="Dokumente" asp-action="Neu" asp-route-kapitelId="@Model.Id"
+               class="btn-mc-ghost" style="font-size:.72rem; padding:.18rem .5rem;">
+                <i class="bi bi-file-earmark-plus"></i> Dokument
+            </a>
+        </div>
+    </div>
+    @if (Model.Unterkapitel.Any())
+    {
+        <ul class="list-unstyled mb-0 mt-1">
+            @foreach (var u in Model.Unterkapitel)
+            {
+                <partial name="_KapitelNode" model="u" />
+            }
+        </ul>
+    }
+</li>

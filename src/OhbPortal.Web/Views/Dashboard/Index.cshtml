@@ -1,0 +1,137 @@
+@model OhbPortal.Application.DTOs.DashboardDto
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="mc-page-header">
+    <div>
+        <h1 class="mc-page-title"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
+        <p class="mc-page-subtitle">Übersicht über Dokumente, Freigaben und Kenntnisnahmen</p>
+    </div>
+    <div>
+        <a asp-controller="Dokumente" asp-action="Neu" class="btn-mc-primary">
+            <i class="bi bi-plus-circle"></i> Neues Dokument
+        </a>
+    </div>
+</div>
+
+@if (Model.MeineOffenenFreigaben > 0 || Model.MeineOffenenKenntnisnahmen > 0 || Model.UeberfaelligePrueftermine > 0)
+{
+    <div class="alert alert-warning d-flex flex-wrap gap-2 align-items-center mb-4 py-2" style="border-radius:var(--mc-radius);">
+        <strong class="me-1"><i class="bi bi-bell-fill me-1"></i>Handlungsbedarf:</strong>
+        @if (Model.MeineOffenenFreigaben > 0)
+        {
+            <a asp-controller="Freigaben" asp-action="Meine" class="mc-badge badge-warning text-decoration-none">
+                <i class="bi bi-check2-square"></i> @Model.MeineOffenenFreigaben Freigaben ausstehend
+            </a>
+        }
+        @if (Model.MeineOffenenKenntnisnahmen > 0)
+        {
+            <a asp-controller="Kenntnisnahmen" asp-action="Meine" class="mc-badge badge-primary text-decoration-none">
+                <i class="bi bi-eye"></i> @Model.MeineOffenenKenntnisnahmen Kenntnisnahmen offen
+            </a>
+        }
+        @if (Model.UeberfaelligePrueftermine > 0)
+        {
+            <a asp-controller="Dokumente" asp-action="Index" asp-route-pruefUeberfaellig="true"
+               class="mc-badge badge-danger text-decoration-none">
+                <i class="bi bi-clock-history"></i> @Model.UeberfaelligePrueftermine Prüftermine überfällig
+            </a>
+        }
+    </div>
+}
+
+<div class="mc-kpi-grid">
+    <div class="mc-kpi-card">
+        <div class="mc-kpi-icon blue"><i class="bi bi-file-earmark-text"></i></div>
+        <div class="mc-kpi-label">Dokumente gesamt</div>
+        <div class="mc-kpi-value">@Model.AnzahlDokumente</div>
+    </div>
+    <div class="mc-kpi-card">
+        <div class="mc-kpi-icon gold"><i class="bi bi-pencil"></i></div>
+        <div class="mc-kpi-label">Entwürfe</div>
+        <div class="mc-kpi-value">@Model.AnzahlEntwuerfe</div>
+    </div>
+    <div class="mc-kpi-card">
+        <div class="mc-kpi-icon navy"><i class="bi bi-hourglass-split"></i></div>
+        <div class="mc-kpi-label">In Freigabe</div>
+        <div class="mc-kpi-value">@Model.AnzahlInFreigabe</div>
+    </div>
+    <div class="mc-kpi-card">
+        <div class="mc-kpi-icon green"><i class="bi bi-check2-circle"></i></div>
+        <div class="mc-kpi-label">Freigegeben</div>
+        <div class="mc-kpi-value">@Model.AnzahlFreigegeben</div>
+    </div>
+</div>
+
+<div class="mc-card">
+    <div class="mc-card-header">
+        <h2 class="mc-card-title"><i class="bi bi-clock-history"></i> Zuletzt geändert</h2>
+        <a asp-controller="Dokumente" asp-action="Index" class="btn-mc-ghost">
+            <i class="bi bi-arrow-right"></i> Alle anzeigen
+        </a>
+    </div>
+    <div class="mc-card-body" style="padding:0;">
+        @if (!Model.LetzteAenderungen.Any())
+        {
+            <div class="text-center py-5" style="color:var(--mc-text-muted);">
+                <i class="bi bi-inbox" style="font-size:2rem;"></i>
+                <p class="mt-2 mb-0 small">Keine Dokumente vorhanden.</p>
+            </div>
+        }
+        else
+        {
+            <div class="mc-table-wrapper">
+                <table class="mc-table">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Kapitel</th>
+                            <th>Status</th>
+                            <th>Version</th>
+                            <th>Geändert</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in Model.LetzteAenderungen)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">@d.Titel</div>
+                                    @if (!string.IsNullOrEmpty(d.Kurzbeschreibung))
+                                    {
+                                        <div class="text-muted small">@d.Kurzbeschreibung</div>
+                                    }
+                                </td>
+                                <td style="font-size:.82rem;">@d.KapitelPfad</td>
+                                <td>
+                                    <span class="mc-badge @StatusBadgeClass(d.Status)">@d.Status</span>
+                                </td>
+                                <td><code>v@(d.AktuelleVersion)</code></td>
+                                <td class="small text-muted">@d.GeaendertAm.ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>
+                                    <a asp-controller="Dokumente" asp-action="Details" asp-route-id="@d.Id" class="btn-mc-ghost" style="font-size:.78rem; padding:.3rem .7rem;">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@functions {
+    static string StatusBadgeClass(DokumentStatus s) => s switch
+    {
+        DokumentStatus.Entwurf => "badge-secondary",
+        DokumentStatus.InFreigabe => "badge-warning",
+        DokumentStatus.Freigegeben => "badge-success",
+        DokumentStatus.Abgelehnt => "badge-danger",
+        DokumentStatus.Archiviert => "badge-secondary",
+        _ => "badge-secondary"
+    };
+}

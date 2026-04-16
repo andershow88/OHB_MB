@@ -1,0 +1,15 @@
+@model OhbPortal.Web.ViewModels.DokumentBearbeitenViewModel
+@{
+    ViewData["Title"] = "Dokument bearbeiten";
+}
+
+<div class="mc-page-header">
+    <div>
+        <h1 class="mc-page-title"><i class="bi bi-pencil-square me-2"></i>Dokument bearbeiten</h1>
+        <p class="mc-page-subtitle">Änderungen erzeugen automatisch eine neue Version</p>
+    </div>
+</div>
+
+<form asp-action="Bearbeiten" asp-route-id="@Model.Id" method="post">
+    @await Html.PartialAsync("_Form", Model)
+</form>

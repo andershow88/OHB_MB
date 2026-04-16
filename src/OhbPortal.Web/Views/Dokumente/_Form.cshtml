@@ -1,0 +1,178 @@
+@model OhbPortal.Web.ViewModels.DokumentBearbeitenViewModel
+@Html.AntiForgeryToken()
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="mc-card">
+            <div class="mc-card-body">
+                <div asp-validation-summary="All" class="text-danger small mb-3"></div>
+
+                <div class="mb-3">
+                    <label asp-for="Titel" class="form-label fw-semibold"></label>
+                    <input asp-for="Titel" class="form-control" placeholder="Aussagekräftiger Titel" />
+                    <span asp-validation-for="Titel" class="text-danger small"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Kurzbeschreibung" class="form-label fw-semibold"></label>
+                    <input asp-for="Kurzbeschreibung" class="form-control" placeholder="Einzeiler – erscheint in Listen" />
+                </div>
+                <div class="mb-3">
+                    <label asp-for="InhaltHtml" class="form-label fw-semibold"></label>
+                    <input type="hidden" asp-for="InhaltHtml" id="InhaltHtmlHidden" />
+                    <div id="editor" style="background:var(--mc-bg-card); color:var(--mc-text); border-radius:var(--mc-radius); min-height:360px;"></div>
+                    <div class="small text-muted mt-1">Tipp: Überschriften für Struktur nutzen; Links via Symbolleiste.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="mc-card">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-info-circle"></i> Zuordnung</h2>
+            </div>
+            <div class="mc-card-body">
+                <div class="mb-3">
+                    <label asp-for="KapitelId" class="form-label fw-semibold"></label>
+                    <select asp-for="KapitelId" asp-items="(Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Kapitel" class="form-select">
+                        <option value="">– Bitte wählen –</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="VerantwortlicherBereichId" class="form-label fw-semibold"></label>
+                    <select asp-for="VerantwortlicherBereichId" asp-items="(Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Teams" class="form-select">
+                        <option value="">– optional –</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Kategorie" class="form-label fw-semibold"></label>
+                    <input asp-for="Kategorie" class="form-control" placeholder="z.B. Richtlinie, Anweisung, Formular" />
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Tags" class="form-label fw-semibold"></label>
+                    <input asp-for="Tags" class="form-control" placeholder="fernwartung, it, sicherheit" />
+                </div>
+            </div>
+        </div>
+
+        <div class="mc-card mt-3">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-calendar-check"></i> Termine</h2>
+            </div>
+            <div class="mc-card-body">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label asp-for="SichtbarAb" class="form-label fw-semibold small"></label>
+                        <input asp-for="SichtbarAb" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="SichtbarBis" class="form-label fw-semibold small"></label>
+                        <input asp-for="SichtbarBis" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-12 mt-2">
+                        <label asp-for="Pruefterm" class="form-label fw-semibold small"></label>
+                        <input asp-for="Pruefterm" class="form-control form-control-sm" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mc-card mt-3">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-check2-square"></i> Freigabe-Workflow</h2>
+            </div>
+            <div class="mc-card-body">
+                <div class="mb-2">
+                    <label asp-for="FreigabeModus" class="form-label fw-semibold small"></label>
+                    <select asp-for="FreigabeModus" class="form-select form-select-sm">
+                        @foreach (FreigabeModus m in Enum.GetValues<FreigabeModus>())
+                        {
+                            if (Model.FreigabeModus == m) { <option value="@((int)m)" selected>@m</option> }
+                            else { <option value="@((int)m)">@m</option> }
+                        }
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label asp-for="FreigabeReihenfolge" class="form-label fw-semibold small"></label>
+                    <select asp-for="FreigabeReihenfolge" class="form-select form-select-sm">
+                        @foreach (FreigabeReihenfolge r in Enum.GetValues<FreigabeReihenfolge>())
+                        {
+                            if (Model.FreigabeReihenfolge == r) { <option value="@((int)r)" selected>@r</option> }
+                            else { <option value="@((int)r)">@r</option> }
+                        }
+                    </select>
+                </div>
+                <div class="small text-muted">Gruppen &amp; Mitglieder werden in einem späteren Release direkt pflegbar. Aktuell: siehe Seed-Daten für Beispiel.</div>
+            </div>
+        </div>
+
+        <div class="mc-card mt-3">
+            <div class="mc-card-header">
+                <h2 class="mc-card-title"><i class="bi bi-shield-lock"></i> Sicherheit</h2>
+            </div>
+            <div class="mc-card-body">
+                <div class="form-check mb-2">
+                    <input asp-for="OeffentlichLesbar" class="form-check-input" />
+                    <label asp-for="OeffentlichLesbar" class="form-check-label small"></label>
+                </div>
+                <div class="form-check">
+                    <input asp-for="Druckverbot" class="form-check-input" />
+                    <label asp-for="Druckverbot" class="form-check-label small"></label>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.Id.HasValue)
+        {
+            <div class="mc-card mt-3">
+                <div class="mc-card-body">
+                    <label asp-for="AenderungsHinweis" class="form-label fw-semibold small">Änderungshinweis (Version)</label>
+                    <textarea asp-for="AenderungsHinweis" class="form-control form-control-sm" rows="2" placeholder="Was wurde geändert?"></textarea>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="d-flex gap-2 mt-4">
+    <button type="submit" class="btn-mc-primary">
+        <i class="bi bi-check2 me-1"></i>Speichern
+    </button>
+    <a asp-action="Index" class="btn-mc-ghost">Abbrechen</a>
+</div>
+
+@section Scripts {
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script>
+    const quill = new Quill('#editor', {
+        modules: {
+            toolbar: [
+                [{ header: [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline'],
+                [{ list: 'ordered' }, { list: 'bullet' }],
+                ['blockquote', 'code-block'],
+                ['link'],
+                ['clean']
+            ]
+        },
+        theme: 'snow',
+        placeholder: 'Inhalt hier erfassen …'
+    });
+    const hidden = document.getElementById('InhaltHtmlHidden');
+    if (hidden.value) quill.root.innerHTML = hidden.value;
+    document.querySelector('form').addEventListener('submit', () => {
+        hidden.value = quill.root.innerHTML;
+    });
+</script>
+<style>
+    .ql-toolbar.ql-snow, .ql-container.ql-snow {
+        border-color: var(--mc-border);
+    }
+    [data-theme="dark"] .ql-toolbar.ql-snow,
+    [data-theme="dark"] .ql-container.ql-snow { background: var(--mc-bg-card); color: var(--mc-text); }
+    [data-theme="dark"] .ql-snow .ql-stroke { stroke: var(--mc-text); }
+    [data-theme="dark"] .ql-snow .ql-fill { fill: var(--mc-text); }
+    [data-theme="dark"] .ql-snow .ql-picker-label { color: var(--mc-text); }
+</style>
+}

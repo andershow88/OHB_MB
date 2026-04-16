@@ -1,0 +1,68 @@
+@model IEnumerable<OhbPortal.Application.DTOs.KenntnisnahmeOffenDto>
+@{
+    ViewData["Title"] = "Meine Kenntnisnahmen";
+}
+
+<div class="mc-page-header">
+    <div>
+        <h1 class="mc-page-title"><i class="bi bi-eye me-2"></i>Meine Kenntnisnahmen</h1>
+        <p class="mc-page-subtitle">@Model.Count() offen</p>
+    </div>
+</div>
+
+<div class="mc-card">
+    <div style="padding:0;">
+        @if (!Model.Any())
+        {
+            <div class="text-center py-5" style="color:var(--mc-text-muted);">
+                <i class="bi bi-check2-all" style="font-size:2rem;"></i>
+                <p class="mt-2 mb-0 small">Alle Kenntnisnahmen sind auf dem aktuellen Stand.</p>
+            </div>
+        }
+        else
+        {
+            <div class="mc-table-wrapper">
+                <table class="mc-table">
+                    <thead>
+                        <tr>
+                            <th>Dokument</th>
+                            <th>Fällig</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var k in Model)
+                        {
+                            var ueberfaellig = k.Faelligkeit.HasValue && k.Faelligkeit.Value < DateTime.UtcNow;
+                            <tr>
+                                <td class="fw-semibold">@k.DokumentTitel</td>
+                                <td class="small @(ueberfaellig ? "text-danger fw-semibold" : "")">
+                                    @(k.Faelligkeit?.ToString("dd.MM.yyyy") ?? "–")
+                                </td>
+                                <td>
+                                    <span class="mc-badge @(ueberfaellig ? "badge-danger" : "badge-warning")">
+                                        @(ueberfaellig ? "überfällig" : k.Status.ToString())
+                                    </span>
+                                </td>
+                                <td class="d-flex gap-2">
+                                    <a asp-controller="Dokumente" asp-action="Details" asp-route-id="@k.DokumentId" class="btn-mc-ghost" style="font-size:.78rem; padding:.3rem .7rem;">
+                                        <i class="bi bi-eye"></i> Öffnen
+                                    </a>
+                                    <form asp-controller="Dokumente" asp-action="KenntnisnahmeBestaetigen" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="kenntnisnahmeId" value="@k.Id" />
+                                        <input type="hidden" name="dokumentId" value="@k.DokumentId" />
+                                        <button type="submit" class="btn-mc-primary" style="font-size:.78rem; padding:.3rem .7rem;">
+                                            <i class="bi bi-check2"></i> Bestätigen
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

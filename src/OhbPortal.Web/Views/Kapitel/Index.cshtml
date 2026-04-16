@@ -1,0 +1,79 @@
+@model IEnumerable<OhbPortal.Application.DTOs.KapitelBaumDto>
+@{
+    ViewData["Title"] = "Themenbaum";
+    bool istEditor = User.IsInRole("Editor") || User.IsInRole("Admin") || User.IsInRole("Bereichsverantwortlicher");
+}
+
+<div class="mc-page-header">
+    <div>
+        <h1 class="mc-page-title"><i class="bi bi-diagram-3 me-2"></i>Themenbaum</h1>
+        <p class="mc-page-subtitle">Hauptkapitel und Unterkapitel als Baum</p>
+    </div>
+    @if (istEditor)
+    {
+        <button class="btn-mc-primary" data-bs-toggle="modal" data-bs-target="#kapitelModal" onclick="setElternId(null)">
+            <i class="bi bi-plus-circle"></i> Neues Hauptkapitel
+        </button>
+    }
+</div>
+
+<div class="mc-card">
+    <div class="mc-card-body">
+        @if (!Model.Any())
+        {
+            <p class="text-muted">Keine Kapitel vorhanden.</p>
+        }
+        else
+        {
+            <ul class="list-unstyled mb-0" id="kapitelBaum">
+                @foreach (var k in Model)
+                {
+                    <partial name="_KapitelNode" model="k" />
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+@if (istEditor)
+{
+    <div class="modal fade" id="kapitelModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form asp-action="Anlegen" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" id="kapitelElternId" name="elternId" value="" />
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-diagram-3 me-2"></i>Kapitel anlegen</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Titel</label>
+                            <input name="titel" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Bootstrap-Icon (optional)</label>
+                            <input name="icon" class="form-control" placeholder="bi-folder2-open" />
+                            <div class="small text-muted">siehe icons.getbootstrap.com</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Beschreibung (optional)</label>
+                            <textarea name="beschreibung" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-mc-ghost" data-bs-dismiss="modal">Abbrechen</button>
+                        <button type="submit" class="btn-mc-primary"><i class="bi bi-check2 me-1"></i>Anlegen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @section Scripts {
+    <script>
+        function setElternId(id) { document.getElementById('kapitelElternId').value = id ?? ''; }
+    </script>
+    }
+}

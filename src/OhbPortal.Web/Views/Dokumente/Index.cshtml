@@ -1,0 +1,161 @@
+@model IEnumerable<OhbPortal.Application.DTOs.DokumentListeDto>
+@{
+    var seitenTitel = ViewBag.SeitenTitel as string ?? "Dokumente";
+    var seitenIcon = ViewBag.SeitenIcon as string ?? "bi-file-earmark-text";
+    var filter = ViewBag.Filter as OhbPortal.Application.DTOs.DokumentFilterDto
+        ?? new OhbPortal.Application.DTOs.DokumentFilterDto();
+    ViewData["Title"] = seitenTitel;
+    bool istEditor = User.IsInRole("Editor") || User.IsInRole("Admin") || User.IsInRole("Bereichsverantwortlicher");
+}
+
+<div class="mc-page-header">
+    <div>
+        <h1 class="mc-page-title"><i class="bi @seitenIcon me-2"></i>@seitenTitel</h1>
+        <p class="mc-page-subtitle">@Model.Count() Dokument(e)</p>
+    </div>
+    @if (istEditor && ViewBag.SeitenTitel == null)
+    {
+        <a asp-action="Neu" class="btn-mc-primary">
+            <i class="bi bi-plus-circle"></i> Neues Dokument
+        </a>
+    }
+</div>
+
+@if (ViewBag.SeitenTitel == null)
+{
+    <form method="get" class="mc-card mb-3" style="padding:.75rem 1rem;">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small mb-1">Suche</label>
+                <input name="q" value="@filter.Suchbegriff" class="form-control form-control-sm" placeholder="Titel, Inhalt oder Schlagwort …" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1">Kapitel</label>
+                <select name="kapitelId" class="form-select form-select-sm">
+                    <option value="">Alle</option>
+                    @foreach (var kap in (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Kapitel)
+                    {
+                        if (filter.KapitelId?.ToString() == kap.Value)
+                        {
+                            <option value="@kap.Value" selected>@kap.Text</option>
+                        }
+                        else
+                        {
+                            <option value="@kap.Value">@kap.Text</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">Alle</option>
+                    @foreach (DokumentStatus s in Enum.GetValues<DokumentStatus>())
+                    {
+                        if (filter.Status == s)
+                        {
+                            <option value="@((int)s)" selected>@s</option>
+                        }
+                        else
+                        {
+                            <option value="@((int)s)">@s</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Kategorie</label>
+                <input name="kategorie" value="@filter.Kategorie" class="form-control form-control-sm" />
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn-mc-primary w-100" style="font-size:.82rem; padding:.35rem .5rem;">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+        </div>
+    </form>
+}
+
+<div class="mc-card">
+    <div style="padding:0;">
+        @if (!Model.Any())
+        {
+            <div class="text-center py-5" style="color:var(--mc-text-muted);">
+                <i class="bi bi-inbox" style="font-size:2rem;"></i>
+                <p class="mt-2 mb-0 small">Keine Dokumente gefunden.</p>
+            </div>
+        }
+        else
+        {
+            <div class="mc-table-wrapper">
+                <table class="mc-table">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Kapitel</th>
+                            <th>Verantwortlich</th>
+                            <th>Status</th>
+                            <th>Version</th>
+                            <th>Prüftermin</th>
+                            <th>Geändert</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in Model)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">@d.Titel</div>
+                                    @if (!string.IsNullOrEmpty(d.Kurzbeschreibung))
+                                    {
+                                        <div class="text-muted small">@d.Kurzbeschreibung</div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(d.Tags))
+                                    {
+                                        <div class="mt-1">
+                                            @foreach (var tag in d.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                                            {
+                                                <span class="mc-badge badge-secondary me-1" style="font-size:.65rem;">#@tag</span>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                                <td style="font-size:.82rem;">@d.KapitelPfad</td>
+                                <td style="font-size:.82rem;">@(d.VerantwortlicherBereich ?? "–")</td>
+                                <td><span class="mc-badge @StatusBadgeClass(d.Status)">@d.Status</span></td>
+                                <td><code>v@(d.AktuelleVersion)</code></td>
+                                <td style="font-size:.82rem;">
+                                    @if (d.Pruefterm.HasValue)
+                                    {
+                                        var ueberfaellig = d.Pruefterm.Value < DateTime.UtcNow;
+                                        <span class="@(ueberfaellig ? "text-danger fw-semibold" : "")">@d.Pruefterm.Value.ToString("dd.MM.yyyy")</span>
+                                    }
+                                    else { <span>–</span> }
+                                </td>
+                                <td class="small text-muted">@d.GeaendertAm.ToString("dd.MM.yyyy")<br>@d.GeaendertVon</td>
+                                <td>
+                                    <a asp-action="Details" asp-route-id="@d.Id" class="btn-mc-ghost" style="font-size:.78rem; padding:.3rem .7rem;">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@functions {
+    static string StatusBadgeClass(DokumentStatus s) => s switch
+    {
+        DokumentStatus.Entwurf => "badge-secondary",
+        DokumentStatus.InFreigabe => "badge-warning",
+        DokumentStatus.Freigegeben => "badge-success",
+        DokumentStatus.Abgelehnt => "badge-danger",
+        DokumentStatus.Archiviert => "badge-secondary",
+        _ => "badge-secondary"
+    };
+}

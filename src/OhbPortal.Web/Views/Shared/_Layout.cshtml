@@ -1,0 +1,185 @@
+@{
+    var ctrl = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    bool istEditor = User.IsInRole("Editor") || User.IsInRole("Admin") || User.IsInRole("Bereichsverantwortlicher");
+    bool istApprover = User.IsInRole("Approver") || User.IsInRole("Admin");
+    bool istAdmin = User.IsInRole("Admin");
+}
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] – Organisationshandbuch</title>
+    <link rel="icon" type="image/x-icon" href="~/favicon.ico" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/merkur.css" asp-append-version="true" />
+    <script>
+        (function () {
+            var t = localStorage.getItem('mc-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+</head>
+<body class="mc-body">
+
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <aside class="mc-sidebar" id="mcSidebar">
+        <div class="mc-sidebar-brand">
+            <a asp-controller="Dashboard" asp-action="Index" class="mc-logo" style="text-decoration:none">
+                <img src="~/images/merkur-logo.svg" alt="Merkur Privatbank" class="mc-logo-img" />
+                <div class="mc-logo-title">Organisations­handbuch</div>
+                <div class="mc-logo-subtitle">MERKUR PRIVATBANK KGaA</div>
+            </a>
+        </div>
+
+        <div class="mc-sidebar-bank">
+            <div class="mc-sidebar-bank-label">Angemeldet als</div>
+            <div class="mc-sidebar-bank-name">@User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value</div>
+            <div class="mc-sidebar-bank-user">@(User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "–")</div>
+        </div>
+
+        <ul class="mc-nav">
+            <li class="mc-nav-item">
+                <a asp-controller="Dashboard" asp-action="Index"
+                   class="mc-nav-link @(ctrl == "Dashboard" ? "active" : "")">
+                    <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="mc-nav-item">
+                <a asp-controller="Kapitel" asp-action="Index"
+                   class="mc-nav-link @(ctrl == "Kapitel" ? "active" : "")">
+                    <i class="bi bi-diagram-3"></i> <span>Themenbaum</span>
+                </a>
+            </li>
+            <li class="mc-nav-item">
+                <a asp-controller="Dokumente" asp-action="Index"
+                   class="mc-nav-link @(ctrl == "Dokumente" && action == "Index" ? "active" : "")">
+                    <i class="bi bi-file-earmark-text"></i> <span>Dokumente</span>
+                </a>
+            </li>
+            <li class="mc-nav-item">
+                <a asp-controller="Freigaben" asp-action="Meine"
+                   class="mc-nav-link @(ctrl == "Freigaben" ? "active" : "")">
+                    <i class="bi bi-check2-square"></i> <span>Meine Freigaben</span>
+                </a>
+            </li>
+            <li class="mc-nav-item">
+                <a asp-controller="Kenntnisnahmen" asp-action="Meine"
+                   class="mc-nav-link @(ctrl == "Kenntnisnahmen" ? "active" : "")">
+                    <i class="bi bi-eye"></i> <span>Meine Kenntnisnahmen</span>
+                </a>
+            </li>
+            <li class="mc-nav-item" style="margin-top:.5rem; border-top:1px solid var(--mc-border); padding-top:.5rem;">
+                <a asp-controller="Dokumente" asp-action="Archiv"
+                   class="mc-nav-link @(ctrl == "Dokumente" && action == "Archiv" ? "active" : "")">
+                    <i class="bi bi-archive"></i> <span>Archiv</span>
+                </a>
+            </li>
+            <li class="mc-nav-item">
+                <a asp-controller="Dokumente" asp-action="Papierkorb"
+                   class="mc-nav-link @(ctrl == "Dokumente" && action == "Papierkorb" ? "active" : "")">
+                    <i class="bi bi-trash"></i> <span>Papierkorb</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="mc-sidebar-footer">
+            <form asp-controller="Account" asp-action="Logout" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="mc-logout-btn">
+                    <i class="bi bi-box-arrow-right"></i> Abmelden
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <div class="mc-main">
+        <header class="mc-topbar" style="gap:.75rem;">
+            <button class="mc-sidebar-toggle d-lg-none" id="sidebarToggle" aria-label="Menü öffnen">
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="mc-breadcrumb">
+                @if (ViewData["Breadcrumb"] != null) { @Html.Raw(ViewData["Breadcrumb"]) }
+            </div>
+            <div class="mc-topbar-right" style="flex-shrink:0;">
+                <span class="mc-topbar-date d-none d-md-inline">
+                    <i class="bi bi-calendar3 me-1"></i>@DateTime.Now.ToString("dd.MM.yyyy")
+                </span>
+                <button class="mc-theme-toggle" id="themeToggle" title="Dark Mode umschalten">
+                    <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+                </button>
+                <span class="d-none d-md-inline">@User.Identity.Name</span>
+            </div>
+        </header>
+
+        <div class="mc-content" style="padding-bottom:0; padding-top:0.75rem; min-height:0; flex:none;">
+            @if (TempData["Erfolg"] is string er)
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle me-1"></i> @er
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @if (TempData["Fehler"] is string fe)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle me-1"></i> @fe
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+        </div>
+
+        <main class="mc-content" role="main">
+            @RenderBody()
+        </main>
+
+        <footer class="mc-footer">
+            <span>&copy; @DateTime.Now.Year Merkur Privatbank KGaA &mdash; Organisationshandbuch</span>
+        </footer>
+    </div>
+
+    <div id="sidebarOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:199;" onclick="closeSidebar()"></div>
+}
+else
+{
+    @RenderBody()
+}
+
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    (function () {
+        const stored = localStorage.getItem('mc-theme') || 'light';
+        document.documentElement.setAttribute('data-theme', stored);
+        updateIcon(stored);
+    })();
+    document.getElementById('themeToggle')?.addEventListener('click', function () {
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('mc-theme', next);
+        updateIcon(next);
+    });
+    function updateIcon(t) {
+        const i = document.getElementById('themeIcon');
+        if (i) i.className = t === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+    }
+    document.getElementById('sidebarToggle')?.addEventListener('click', function () {
+        const s = document.getElementById('mcSidebar');
+        const o = document.getElementById('sidebarOverlay');
+        s.classList.toggle('open');
+        o.style.display = s.classList.contains('open') ? 'block' : 'none';
+    });
+    function closeSidebar() {
+        document.getElementById('mcSidebar')?.classList.remove('open');
+        document.getElementById('sidebarOverlay').style.display = 'none';
+    }
+</script>
+
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
