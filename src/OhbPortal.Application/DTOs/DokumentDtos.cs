@@ -107,9 +107,11 @@ public record AuditDto(
 public record KapitelBaumDto(
     int Id,
     string Titel,
+    string? Beschreibung,
     string? Icon,
     int? ElternId,
     int Tiefe,
+    int Sortierung,
     int DokumentenAnzahl,
     IReadOnlyList<KapitelBaumDto> Unterkapitel);
 

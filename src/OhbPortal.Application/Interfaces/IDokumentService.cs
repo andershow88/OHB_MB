@@ -28,6 +28,8 @@ public interface IKapitelService
     Task<int> AnlegenAsync(string titel, int? elternId, string? beschreibung, string? icon, int benutzerId);
     Task AktualisierenAsync(int id, string titel, string? beschreibung, string? icon, int benutzerId);
     Task LoeschenAsync(int id, int benutzerId);
+    Task NachObenVerschiebenAsync(int id, int benutzerId);
+    Task NachUntenVerschiebenAsync(int id, int benutzerId);
 }
 
 public interface IFreigabeService

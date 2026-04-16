@@ -71,9 +71,53 @@
         </div>
     </div>
 
+    <!-- Modal: Kapitel bearbeiten -->
+    <div class="modal fade" id="kapitelBearbeitenModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form asp-action="Bearbeiten" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" id="kb_id" />
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Kapitel bearbeiten</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Titel</label>
+                            <input name="titel" id="kb_titel" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Bootstrap-Icon</label>
+                            <input name="icon" id="kb_icon" class="form-control" placeholder="bi-folder2-open" />
+                            <div class="small text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                z.B. <code>bi-shield-check</code>, <code>bi-cpu</code>, <code>bi-people</code> — siehe icons.getbootstrap.com
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Beschreibung (optional)</label>
+                            <textarea name="beschreibung" id="kb_beschreibung" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-mc-ghost" data-bs-dismiss="modal">Abbrechen</button>
+                        <button type="submit" class="btn-mc-primary"><i class="bi bi-check2 me-1"></i>Speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     @section Scripts {
     <script>
         function setElternId(id) { document.getElementById('kapitelElternId').value = id ?? ''; }
+        function kapitelVorbereiten(id, titel, icon, beschreibung) {
+            document.getElementById('kb_id').value = id;
+            document.getElementById('kb_titel').value = titel || '';
+            document.getElementById('kb_icon').value = icon || '';
+            document.getElementById('kb_beschreibung').value = beschreibung || '';
+        }
     </script>
     }
 }

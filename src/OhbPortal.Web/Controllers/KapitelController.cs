@@ -31,6 +31,40 @@ public class KapitelController : BaseController
     }
 
     [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Bearbeiten(int id, string titel, string? beschreibung, string? icon)
+    {
+        if (!IstEditor) return Forbid();
+        if (string.IsNullOrWhiteSpace(titel))
+        {
+            TempData["Fehler"] = "Titel darf nicht leer sein.";
+            return RedirectToAction(nameof(Index));
+        }
+        try
+        {
+            await _svc.AktualisierenAsync(id, titel.Trim(), beschreibung, icon, AktuellerBenutzerId);
+            TempData["Erfolg"] = "Kapitel aktualisiert.";
+        }
+        catch (KeyNotFoundException) { TempData["Fehler"] = "Kapitel nicht gefunden."; }
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> NachOben(int id)
+    {
+        if (!IstEditor) return Forbid();
+        await _svc.NachObenVerschiebenAsync(id, AktuellerBenutzerId);
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> NachUnten(int id)
+    {
+        if (!IstEditor) return Forbid();
+        await _svc.NachUntenVerschiebenAsync(id, AktuellerBenutzerId);
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Loeschen(int id)
     {
         if (!IstAdmin) return Forbid();

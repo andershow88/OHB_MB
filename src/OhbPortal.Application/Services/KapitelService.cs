@@ -25,8 +25,10 @@ public class KapitelService : IKapitelService
             {
                 k.Id,
                 k.Titel,
+                k.Beschreibung,
                 k.Icon,
                 k.ElternKapitelId,
+                k.Sortierung,
                 DokumenteAnzahl = k.Dokumente.Count(d => !d.Geloescht && !d.Archiviert)
             })
             .ToListAsync();
@@ -34,7 +36,8 @@ public class KapitelService : IKapitelService
         IReadOnlyList<KapitelBaumDto> Children(int? parentId, int tiefe) =>
             alle.Where(k => k.ElternKapitelId == parentId)
                 .Select(k => new KapitelBaumDto(
-                    k.Id, k.Titel, k.Icon, k.ElternKapitelId, tiefe,
+                    k.Id, k.Titel, k.Beschreibung, k.Icon, k.ElternKapitelId,
+                    tiefe, k.Sortierung,
                     k.DokumenteAnzahl,
                     Children(k.Id, tiefe + 1)))
                 .ToList();
@@ -91,5 +94,35 @@ public class KapitelService : IKapitelService
         _db.Kapitel.Remove(k);
         await _db.SaveChangesAsync();
         await _audit.LogAsync(AuditTyp.KapitelGeloescht, benutzerId, kapitelId: id);
+    }
+
+    public Task NachObenVerschiebenAsync(int id, int benutzerId)
+        => VerschiebenInternalAsync(id, nachOben: true, benutzerId);
+
+    public Task NachUntenVerschiebenAsync(int id, int benutzerId)
+        => VerschiebenInternalAsync(id, nachOben: false, benutzerId);
+
+    private async Task VerschiebenInternalAsync(int id, bool nachOben, int benutzerId)
+    {
+        var k = await _db.Kapitel.FindAsync(id) ?? throw new KeyNotFoundException();
+
+        var nachbar = nachOben
+            ? await _db.Kapitel
+                .Where(x => x.ElternKapitelId == k.ElternKapitelId && x.Sortierung < k.Sortierung)
+                .OrderByDescending(x => x.Sortierung)
+                .FirstOrDefaultAsync()
+            : await _db.Kapitel
+                .Where(x => x.ElternKapitelId == k.ElternKapitelId && x.Sortierung > k.Sortierung)
+                .OrderBy(x => x.Sortierung)
+                .FirstOrDefaultAsync();
+
+        if (nachbar is null) return;
+
+        (k.Sortierung, nachbar.Sortierung) = (nachbar.Sortierung, k.Sortierung);
+        k.GeaendertAm = DateTime.UtcNow;
+        nachbar.GeaendertAm = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        await _audit.LogAsync(AuditTyp.KapitelGeaendert, benutzerId, kapitelId: id,
+            beschreibung: nachOben ? "Nach oben verschoben" : "Nach unten verschoben");
     }
 }
