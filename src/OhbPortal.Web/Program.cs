@@ -81,8 +81,22 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var log = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    try { await DataSeeder.SeedAsync(db); }
-    catch (Exception ex) { log.LogError(ex, "DB-Seed fehlgeschlagen"); }
+    try
+    {
+        await DataSeeder.SeedAsync(db);
+    }
+    catch (Exception ex)
+    {
+        log.LogWarning(ex, "Seed fehlgeschlagen – DB wird neu erstellt (Schema-Mismatch?)");
+        try
+        {
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+            await DataSeeder.SeedAsync(db);
+            log.LogInformation("DB neu erstellt und erfolgreich geseeded");
+        }
+        catch (Exception ex2) { log.LogError(ex2, "DB-Seed auch nach Neuanlage fehlgeschlagen"); }
+    }
 }
 
 app.Run();
