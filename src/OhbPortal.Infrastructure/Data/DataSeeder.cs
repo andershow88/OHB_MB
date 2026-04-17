@@ -313,6 +313,7 @@ public static class DataSeeder
             string? aenderungsNotiz,
             string inhaltHtml)
         {
+            stand = DateTime.SpecifyKind(stand, DateTimeKind.Utc);
             var d = new Dokument
             {
                 Titel = titel,
