@@ -234,6 +234,7 @@
         .ai-typing-dots span:nth-child(2) { animation-delay:.15s; }
         .ai-typing-dots span:nth-child(3) { animation-delay:.3s; }
         @@keyframes aiDot { 0%, 60%, 100% { opacity:.3; transform:translateY(0); } 30% { opacity:1; transform:translateY(-3px); } }
+        .ai-msg-bubble button:hover { opacity:.85; }
     </style>
 }
 else
@@ -325,30 +326,37 @@ else
         aiSenden(frage);
     }
 
-    async function aiSenden(frage) {
+    async function aiSenden(frage, bestaetigeAktion) {
         if (aiBesetzt) return;
         aiBesetzt = true;
         const btn = document.getElementById('aiSendBtn');
         if (btn) btn.disabled = true;
 
-        aiNachrichtAnzeigen('user', frage);
+        if (!bestaetigeAktion) aiNachrichtAnzeigen('user', frage);
         const typingEl = aiTippenZeigen();
 
         try {
+            const payload = bestaetigeAktion
+                ? { frage: '', verlauf: aiVerlauf, bestaetigeAktion }
+                : { frage, verlauf: aiVerlauf };
+
             const resp = await fetch('/AiAssistent/Fragen', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ frage: frage, verlauf: aiVerlauf })
+                body: JSON.stringify(payload)
             });
             const data = await resp.json();
             typingEl?.remove();
 
             if (data.error) {
                 aiNachrichtAnzeigen('assistant', '**Fehler:** ' + data.error);
+            } else if (data.aktion) {
+                aiBestaetigungAnzeigen(data.aktion, frage);
+                aiVerlauf.push({ rolle: 'user', text: frage });
             } else {
                 const antwort = data.antwort || '(leere Antwort)';
                 aiNachrichtAnzeigen('assistant', antwort);
-                aiVerlauf.push({ rolle: 'user', text: frage });
+                if (!bestaetigeAktion) aiVerlauf.push({ rolle: 'user', text: frage });
                 aiVerlauf.push({ rolle: 'assistant', text: antwort });
                 if (aiVerlauf.length > 10) aiVerlauf = aiVerlauf.slice(-10);
             }
@@ -360,6 +368,51 @@ else
             if (btn) btn.disabled = false;
             document.getElementById('aiInput')?.focus();
         }
+    }
+
+    function aiBestaetigungAnzeigen(aktion, originalFrage) {
+        const cont = document.getElementById('aiNachrichten');
+        if (!cont) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'ai-msg ai-msg-assistant';
+        const bubble = document.createElement('div');
+        bubble.className = 'ai-msg-bubble';
+        bubble.style.cssText = 'background:var(--mc-surface); border:2px solid var(--mc-gold); padding:.75rem; border-radius:var(--mc-radius-sm);';
+
+        const label = document.createElement('div');
+        label.style.cssText = 'font-size:.75rem; color:var(--mc-gold); margin-bottom:.5rem; font-weight:600;';
+        label.innerHTML = '<i class="bi bi-lightning-charge-fill"></i> Aktion bestätigen';
+        bubble.appendChild(label);
+
+        const desc = document.createElement('div');
+        desc.innerHTML = aiMarkdown(aktion.beschreibung);
+        desc.style.marginBottom = '.75rem';
+        bubble.appendChild(desc);
+
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex; gap:.5rem;';
+
+        const btnJa = document.createElement('button');
+        btnJa.textContent = 'Ja, ausführen';
+        btnJa.style.cssText = 'padding:.4rem .75rem; border:none; border-radius:4px; background:var(--mc-success); color:#fff; cursor:pointer; font-size:.85rem;';
+        btnJa.onclick = function() {
+            btnRow.innerHTML = '<span style="color:var(--mc-text-muted); font-size:.85rem;"><i class="bi bi-check-circle"></i> Wird ausgeführt…</span>';
+            aiSenden('', { typ: aktion.typ, parameter: aktion.parameter });
+        };
+
+        const btnNein = document.createElement('button');
+        btnNein.textContent = 'Abbrechen';
+        btnNein.style.cssText = 'padding:.4rem .75rem; border:1px solid var(--mc-border); border-radius:4px; background:transparent; color:var(--mc-text); cursor:pointer; font-size:.85rem;';
+        btnNein.onclick = function() {
+            btnRow.innerHTML = '<span style="color:var(--mc-text-muted); font-size:.85rem;"><i class="bi bi-x-circle"></i> Abgebrochen</span>';
+        };
+
+        btnRow.appendChild(btnJa);
+        btnRow.appendChild(btnNein);
+        bubble.appendChild(btnRow);
+        wrap.appendChild(bubble);
+        cont.appendChild(wrap);
+        cont.scrollTop = cont.scrollHeight;
     }
 
     function aiNachrichtAnzeigen(rolle, text) {
