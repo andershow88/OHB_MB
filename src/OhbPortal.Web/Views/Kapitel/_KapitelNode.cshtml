@@ -5,32 +5,47 @@
     var beschrEnc = System.Web.HttpUtility.JavaScriptStringEncode(Model.Beschreibung ?? string.Empty);
     var titelEnc = System.Web.HttpUtility.JavaScriptStringEncode(Model.Titel);
     var iconEnc = System.Web.HttpUtility.JavaScriptStringEncode(Model.Icon ?? string.Empty);
+    bool hatKinder = Model.Unterkapitel.Any();
+    var nodeId = $"kap-{Model.Id}";
 }
-<li style="padding:.4rem 0; border-bottom:1px solid var(--mc-border);">
-    <div class="d-flex align-items-center gap-2" style="margin-left:@(Model.Tiefe * 24)px;">
-        <i class="bi @(Model.Icon ?? "bi-folder2")" style="color:var(--mc-gold); font-size:1rem;"></i>
+<li class="tree-node" data-kapitel-id="@Model.Id">
+    <div class="d-flex align-items-center gap-2 tree-row" style="padding:.45rem .5rem; padding-left:@(Model.Tiefe * 28 + 4)px; border-radius:var(--mc-radius-sm); margin-bottom:1px;">
+
+        @* Expand/Collapse Toggle *@
+        @if (hatKinder)
+        {
+            <button class="tree-toggle" onclick="toggleKapitel('@nodeId')" title="Auf-/Zuklappen">
+                <i class="bi bi-chevron-right tree-chevron" id="chevron-@nodeId"></i>
+            </button>
+        }
+        else
+        {
+            <span style="width:20px; display:inline-block;"></span>
+        }
+
+        <i class="bi @(Model.Icon ?? "bi-folder2")" style="color:var(--mc-primary); font-size:1rem;"></i>
         <a asp-controller="Dokumente" asp-action="Index" asp-route-kapitelId="@Model.Id"
-           class="fw-semibold text-decoration-none" style="color:var(--mc-text);">
+           class="fw-semibold text-decoration-none tree-label" style="color:var(--mc-text-dark, var(--mc-text));">
             @Model.Titel
         </a>
+        @if (!string.IsNullOrWhiteSpace(Model.Beschreibung))
+        {
+            <span style="font-size:.72rem; color:var(--mc-text-muted); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@Model.Beschreibung</span>
+        }
         @if (Model.DokumentenAnzahl > 0)
         {
             <span class="mc-badge badge-secondary">@Model.DokumentenAnzahl</span>
         }
-        <div class="ms-auto d-flex gap-1 align-items-center">
+        <div class="ms-auto d-flex gap-1 align-items-center tree-actions">
             @if (istEditor)
             {
                 <form asp-action="NachOben" asp-route-id="@Model.Id" method="post" style="display:inline;">
                     @Html.AntiForgeryToken()
-                    <button type="submit" class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .4rem;" title="Nach oben">
-                        <i class="bi bi-arrow-up"></i>
-                    </button>
+                    <button type="submit" class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .4rem;" title="Nach oben"><i class="bi bi-arrow-up"></i></button>
                 </form>
                 <form asp-action="NachUnten" asp-route-id="@Model.Id" method="post" style="display:inline;">
                     @Html.AntiForgeryToken()
-                    <button type="submit" class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .4rem;" title="Nach unten">
-                        <i class="bi bi-arrow-down"></i>
-                    </button>
+                    <button type="submit" class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .4rem;" title="Nach unten"><i class="bi bi-arrow-down"></i></button>
                 </form>
                 <button class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .4rem;" title="Bearbeiten"
                         data-bs-toggle="modal" data-bs-target="#kapitelBearbeitenModal"
@@ -40,7 +55,7 @@
                 <button class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .5rem;"
                         data-bs-toggle="modal" data-bs-target="#kapitelModal"
                         onclick="setElternId(@Model.Id)" title="Unterkapitel anlegen">
-                    <i class="bi bi-plus"></i>
+                    <i class="bi bi-folder-plus"></i>
                 </button>
             }
             <a asp-controller="Dokumente" asp-action="Neu" asp-route-kapitelId="@Model.Id"
@@ -50,18 +65,16 @@
             @if (istAdmin)
             {
                 <form asp-action="Loeschen" asp-route-id="@Model.Id" method="post" style="display:inline;"
-                      onsubmit="return confirm('Kapitel wirklich löschen? Nur möglich wenn keine Unterkapitel oder Dokumente existieren.');">
+                      onsubmit="return confirm('Kapitel wirklich löschen?');">
                     @Html.AntiForgeryToken()
-                    <button type="submit" class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .4rem; color:var(--mc-danger);" title="Löschen">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    <button type="submit" class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .4rem; color:var(--mc-danger, #c44);" title="Löschen"><i class="bi bi-trash"></i></button>
                 </form>
             }
         </div>
     </div>
-    @if (Model.Unterkapitel.Any())
+    @if (hatKinder)
     {
-        <ul class="list-unstyled mb-0 mt-1">
+        <ul class="list-unstyled mb-0 tree-children" id="@nodeId" style="display:none;">
             @foreach (var u in Model.Unterkapitel)
             {
                 <partial name="_KapitelNode" model="u" />

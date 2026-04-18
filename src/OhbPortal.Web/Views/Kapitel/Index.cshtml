@@ -7,14 +7,22 @@
 <div class="mc-page-header">
     <div>
         <h1 class="mc-page-title"><i class="bi bi-diagram-3 me-2"></i>Themenbaum</h1>
-        <p class="mc-page-subtitle">Hauptkapitel und Unterkapitel als Baum</p>
+        <p class="mc-page-subtitle">Kapitel und Unterkapitel als Baumstruktur</p>
     </div>
-    @if (istEditor)
-    {
-        <button class="btn-mc-primary" data-bs-toggle="modal" data-bs-target="#kapitelModal" onclick="setElternId(null)">
-            <i class="bi bi-plus-circle"></i> Neues Hauptkapitel
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn-mc-outline" onclick="alleAufklappen()" title="Alle aufklappen (Alt+Shift+E)" style="font-size:.8rem; padding:.3rem .75rem;">
+            <i class="bi bi-arrows-expand"></i> Alle aufklappen
         </button>
-    }
+        <button class="btn-mc-outline" onclick="alleZuklappen()" title="Alle zuklappen (Alt+Shift+W)" style="font-size:.8rem; padding:.3rem .75rem;">
+            <i class="bi bi-arrows-collapse"></i> Alle zuklappen
+        </button>
+        @if (istEditor)
+        {
+            <button class="btn-mc-primary" data-bs-toggle="modal" data-bs-target="#kapitelModal" onclick="setElternId(null)">
+                <i class="bi bi-plus-circle"></i> Neues Hauptkapitel
+            </button>
+        }
+    </div>
 </div>
 
 <div class="mc-card">
@@ -25,7 +33,7 @@
         }
         else
         {
-            <ul class="list-unstyled mb-0" id="kapitelBaum">
+            <ul class="list-unstyled mb-0 tree-root" id="kapitelBaum">
                 @foreach (var k in Model)
                 {
                     <partial name="_KapitelNode" model="k" />
@@ -34,6 +42,33 @@
         }
     </div>
 </div>
+
+<style>
+    .tree-root { }
+    .tree-node { position: relative; }
+    .tree-row { transition: background .15s; }
+    .tree-row:hover { background: rgba(0,81,90,.04); }
+    .tree-toggle {
+        background: none; border: none; cursor: pointer; padding: 0;
+        width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center;
+        color: var(--mc-primary); font-size: .7rem; border-radius: 4px; transition: all .2s;
+    }
+    .tree-toggle:hover { background: rgba(0,81,90,.1); }
+    .tree-chevron { transition: transform .25s ease; }
+    .tree-chevron.open { transform: rotate(90deg); }
+    .tree-children { overflow: hidden; transition: max-height .3s ease, opacity .25s ease; }
+    .tree-children.collapsed { max-height: 0 !important; opacity: 0; }
+    .tree-children.expanded { opacity: 1; }
+    .tree-label:hover { color: var(--mc-primary) !important; }
+    .tree-actions { opacity: .3; transition: opacity .2s; }
+    .tree-row:hover .tree-actions { opacity: 1; }
+    .tree-node::before {
+        content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+        width: 1px; background: var(--mc-border); margin-left: calc(var(--mc-depth, 0) * 28px + 13px);
+        display: none;
+    }
+    .tree-node:not(:last-child)::before { display: block; }
+</style>
 
 @if (istEditor)
 {
@@ -48,6 +83,10 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        <div id="kapitelElternInfo" style="display:none; margin-bottom:.75rem; padding:.5rem .75rem; background:rgba(0,81,90,.05); border-radius:var(--mc-radius-sm); font-size:.85rem;">
+                            <i class="bi bi-arrow-return-right" style="color:var(--mc-primary);"></i>
+                            Unterkapitel von: <strong id="kapitelElternName"></strong>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Titel</label>
                             <input name="titel" class="form-control" required />
@@ -71,7 +110,6 @@
         </div>
     </div>
 
-    <!-- Modal: Kapitel bearbeiten -->
     <div class="modal fade" id="kapitelBearbeitenModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -90,10 +128,6 @@
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Bootstrap-Icon</label>
                             <input name="icon" id="kb_icon" class="form-control" placeholder="bi-folder2-open" />
-                            <div class="small text-muted">
-                                <i class="bi bi-info-circle me-1"></i>
-                                z.B. <code>bi-shield-check</code>, <code>bi-cpu</code>, <code>bi-people</code> — siehe icons.getbootstrap.com
-                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Beschreibung (optional)</label>
@@ -108,16 +142,81 @@
             </div>
         </div>
     </div>
+}
 
-    @section Scripts {
-    <script>
-        function setElternId(id) { document.getElementById('kapitelElternId').value = id ?? ''; }
-        function kapitelVorbereiten(id, titel, icon, beschreibung) {
-            document.getElementById('kb_id').value = id;
-            document.getElementById('kb_titel').value = titel || '';
-            document.getElementById('kb_icon').value = icon || '';
-            document.getElementById('kb_beschreibung').value = beschreibung || '';
+@section Scripts {
+<script>
+    function setElternId(id) {
+        document.getElementById('kapitelElternId').value = id ?? '';
+        var info = document.getElementById('kapitelElternInfo');
+        if (id && info) {
+            var node = document.querySelector('[data-kapitel-id="' + id + '"] .tree-label');
+            document.getElementById('kapitelElternName').textContent = node ? node.textContent.trim() : '#' + id;
+            info.style.display = 'block';
+        } else if (info) {
+            info.style.display = 'none';
         }
-    </script>
     }
+
+    function kapitelVorbereiten(id, titel, icon, beschreibung) {
+        document.getElementById('kb_id').value = id;
+        document.getElementById('kb_titel').value = titel || '';
+        document.getElementById('kb_icon').value = icon || '';
+        document.getElementById('kb_beschreibung').value = beschreibung || '';
+    }
+
+    // ── Tree Toggle ──
+    function toggleKapitel(nodeId) {
+        var el = document.getElementById(nodeId);
+        var chev = document.getElementById('chevron-' + nodeId);
+        if (!el) return;
+        if (el.style.display === 'none') {
+            el.style.display = '';
+            el.classList.remove('collapsed');
+            el.classList.add('expanded');
+            el.style.maxHeight = el.scrollHeight + 'px';
+            if (chev) chev.classList.add('open');
+            setTimeout(function() { el.style.maxHeight = 'none'; }, 300);
+        } else {
+            el.style.maxHeight = el.scrollHeight + 'px';
+            requestAnimationFrame(function() {
+                el.classList.add('collapsed');
+                el.classList.remove('expanded');
+                el.style.maxHeight = '0';
+            });
+            if (chev) chev.classList.remove('open');
+            setTimeout(function() { el.style.display = 'none'; el.style.maxHeight = ''; }, 300);
+        }
+    }
+
+    function alleAufklappen() {
+        document.querySelectorAll('.tree-children').forEach(function(el) {
+            el.style.display = '';
+            el.classList.remove('collapsed');
+            el.classList.add('expanded');
+            el.style.maxHeight = 'none';
+        });
+        document.querySelectorAll('.tree-chevron').forEach(function(c) { c.classList.add('open'); });
+    }
+
+    function alleZuklappen() {
+        document.querySelectorAll('.tree-children').forEach(function(el) {
+            el.style.display = 'none';
+            el.classList.add('collapsed');
+            el.classList.remove('expanded');
+            el.style.maxHeight = '';
+        });
+        document.querySelectorAll('.tree-chevron').forEach(function(c) { c.classList.remove('open'); });
+    }
+
+    // ── Keyboard Shortcuts ──
+    // Alt+Shift+E = Alle aufklappen
+    // Alt+Shift+W = Alle zuklappen
+    document.addEventListener('keydown', function(e) {
+        if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            if (e.key === 'E' || e.key === 'e') { e.preventDefault(); alleAufklappen(); }
+            if (e.key === 'W' || e.key === 'w') { e.preventDefault(); alleZuklappen(); }
+        }
+    });
+</script>
 }
