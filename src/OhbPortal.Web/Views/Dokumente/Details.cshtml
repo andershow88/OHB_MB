@@ -778,14 +778,41 @@
                     <dt class="col-5 text-muted">Sichtbar ab</dt><dd class="col-7">@(Model.SichtbarAb?.ToString("dd.MM.yyyy") ?? "–")</dd>
                     <dt class="col-5 text-muted">Sichtbar bis</dt><dd class="col-7">@(Model.SichtbarBis?.ToString("dd.MM.yyyy") ?? "–")</dd>
                     <dt class="col-5 text-muted">Prüftermin</dt>
-                    <dd class="col-7">
-                        @if (Model.Pruefterm.HasValue)
+                    <dd class="col-7" style="position:relative;">
+                        <span id="prueftermAnzeige" @(istEditor ? "style=cursor:pointer;border-bottom:1px dashed var(--mc-primary);padding-bottom:1px;" : "")
+                              @(istEditor ? "onclick=prueftermPopupOeffnen() title=Klicken zum Ändern" : "")>
+                            @if (Model.Pruefterm.HasValue)
+                            {
+                                var ueb = Model.Pruefterm.Value < DateTime.UtcNow;
+                                <span class="@(ueb ? "text-danger fw-semibold" : "")">@Model.Pruefterm.Value.ToString("dd.MM.yyyy")</span>
+                                if (ueb) { <span class="mc-badge badge-danger ms-1">überfällig</span> }
+                            }
+                            else { <span>–</span> }
+                            @if (istEditor) { <i class="bi bi-pencil-square ms-1" style="font-size:.75rem; color:var(--mc-primary); opacity:.6;"></i> }
+                        </span>
+
+                        @if (istEditor)
                         {
-                            var ueb = Model.Pruefterm.Value < DateTime.UtcNow;
-                            <span class="@(ueb ? "text-danger fw-semibold" : "")">@Model.Pruefterm.Value.ToString("dd.MM.yyyy")</span>
-                            if (ueb) { <span class="mc-badge badge-danger ms-1">überfällig</span> }
+                            <div id="prueftermPopup" style="display:none; position:absolute; top:100%; left:0; z-index:50; background:var(--mc-bg-card, #fff); border:1px solid var(--mc-border); border-radius:var(--mc-radius-sm); box-shadow:var(--mc-shadow-lg); padding:1rem; width:280px; margin-top:.25rem;">
+                                <div style="font-weight:600; font-size:.85rem; margin-bottom:.75rem; color:var(--mc-text-dark, #333);">
+                                    <i class="bi bi-calendar-event" style="color:var(--mc-primary);"></i> Prüftermin ändern
+                                </div>
+                                <label style="font-size:.78rem; color:var(--mc-text-muted); display:block; margin-bottom:.25rem;">Neuer Prüftermin</label>
+                                <input type="date" id="prueftermNeu" class="form-control form-control-sm" style="margin-bottom:.65rem;"
+                                       value="@(Model.Pruefterm?.ToString("yyyy-MM-dd"))" />
+                                <label style="font-size:.78rem; color:var(--mc-text-muted); display:block; margin-bottom:.25rem;">Kommentar (optional)</label>
+                                <input type="text" id="prueftermKommentar" class="form-control form-control-sm" placeholder="z.B. Verlängerung um 6 Monate" style="margin-bottom:.75rem;" />
+                                <div style="display:flex; gap:.5rem;">
+                                    <button onclick="prueftermSpeichern()" class="btn-mc-primary" style="flex:1; font-size:.8rem; padding:.35rem .75rem;">
+                                        <i class="bi bi-check-lg"></i> Speichern
+                                    </button>
+                                    <button onclick="prueftermPopupSchliessen()" class="btn-mc-outline" style="font-size:.8rem; padding:.35rem .75rem;">
+                                        Abbrechen
+                                    </button>
+                                </div>
+                                <div id="prueftermFehler" style="font-size:.78rem; color:var(--mc-danger, #c44); margin-top:.5rem; display:none;"></div>
+                            </div>
                         }
-                        else { <span>–</span> }
                     </dd>
                     <dt class="col-5 text-muted">Erstellt</dt><dd class="col-7">@Model.ErstelltAm.ToString("dd.MM.yyyy") · @Model.ErstelltVon</dd>
                     <dt class="col-5 text-muted">Geändert</dt><dd class="col-7">@Model.GeaendertAm.ToString("dd.MM.yyyy HH:mm") · @Model.GeaendertVon</dd>
@@ -878,6 +905,47 @@
 
 @section Scripts {
 <script>
+    // ── Prüftermin Inline-Edit ──
+    function prueftermPopupOeffnen() {
+        document.getElementById('prueftermPopup').style.display = 'block';
+        document.getElementById('prueftermFehler').style.display = 'none';
+    }
+    function prueftermPopupSchliessen() {
+        document.getElementById('prueftermPopup').style.display = 'none';
+    }
+    document.addEventListener('click', function(e) {
+        var popup = document.getElementById('prueftermPopup');
+        var anzeige = document.getElementById('prueftermAnzeige');
+        if (popup && popup.style.display === 'block' && !popup.contains(e.target) && !anzeige.contains(e.target)) {
+            popup.style.display = 'none';
+        }
+    });
+    async function prueftermSpeichern() {
+        var datum = document.getElementById('prueftermNeu').value;
+        var kommentar = document.getElementById('prueftermKommentar').value;
+        var fehlerEl = document.getElementById('prueftermFehler');
+        try {
+            var r = await fetch('/Dokumente/PrueftermAendern/@Model.Id', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    neuerPruefterm: datum || null,
+                    kommentar: kommentar || null
+                })
+            });
+            var data = await r.json();
+            if (data.ok) {
+                location.reload();
+            } else {
+                fehlerEl.textContent = data.error || 'Fehler beim Speichern';
+                fehlerEl.style.display = 'block';
+            }
+        } catch {
+            fehlerEl.textContent = 'Verbindungsfehler';
+            fehlerEl.style.display = 'block';
+        }
+    }
+
     function gruppeVorbereiten(id, bez, reihenfolge, quorum) {
         document.getElementById('gb_gruppeId').value = id;
         document.getElementById('gb_bezeichnung').value = bez;

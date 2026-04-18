@@ -17,6 +17,7 @@ public class DokumenteController : BaseController
     private readonly IKenntnisnahmeService _kn;
     private readonly IAnhangService _anhang;
     private readonly IBerechtigungService _ber;
+    private readonly IAuditService _audit;
     private readonly IApplicationDbContext _db;
     private readonly IFileStorage _fileStorage;
 
@@ -26,6 +27,7 @@ public class DokumenteController : BaseController
         IKenntnisnahmeService kn,
         IAnhangService anhang,
         IBerechtigungService ber,
+        IAuditService audit,
         IApplicationDbContext db,
         IFileStorage fileStorage)
     {
@@ -34,6 +36,7 @@ public class DokumenteController : BaseController
         _kn = kn;
         _anhang = anhang;
         _ber = ber;
+        _audit = audit;
         _db = db;
         _fileStorage = fileStorage;
     }
@@ -313,6 +316,34 @@ public class DokumenteController : BaseController
         TempData["Erfolg"] = "Dokument endgültig gelöscht.";
         return RedirectToAction(nameof(Papierkorb));
     }
+
+    [HttpPost]
+    public async Task<IActionResult> PrueftermAendern(int id, [FromBody] PrueftermDto dto)
+    {
+        if (!IstEditor) return Json(new { error = "Keine Berechtigung." });
+
+        var dok = await _db.Dokumente.FindAsync(id);
+        if (dok == null) return Json(new { error = "Dokument nicht gefunden." });
+
+        var alterWert = dok.Pruefterm?.ToString("dd.MM.yyyy") ?? "nicht gesetzt";
+        var neuerWert = dto.NeuerPruefterm?.ToString("dd.MM.yyyy") ?? "entfernt";
+
+        dok.Pruefterm = dto.NeuerPruefterm.HasValue
+            ? DateTime.SpecifyKind(dto.NeuerPruefterm.Value, DateTimeKind.Utc)
+            : null;
+        await _db.SaveChangesAsync();
+
+        var beschreibung = $"Pr\u00fcftermin ge\u00e4ndert: {alterWert} \u2192 {neuerWert}";
+        if (!string.IsNullOrWhiteSpace(dto.Kommentar))
+            beschreibung += $" \u2014 {dto.Kommentar}";
+
+        await _audit.LogAsync(AuditTyp.PrueftermGeaendert, AktuellerBenutzerId,
+            dokumentId: id, beschreibung: beschreibung);
+
+        return Json(new { ok = true, neuerWert });
+    }
+
+    public record PrueftermDto(DateTime? NeuerPruefterm, string? Kommentar);
 
     private async Task FuelleDropdowns(int? aktKapitelId)
     {

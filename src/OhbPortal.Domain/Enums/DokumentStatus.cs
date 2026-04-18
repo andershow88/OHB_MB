@@ -70,6 +70,7 @@ public enum AuditTyp
     AnhangHochgeladen = 30,
     AnhangGeloescht = 31,
     BerechtigungGeaendert = 40,
+    PrueftermGeaendert = 45,
     KapitelErstellt = 50,
     KapitelGeaendert = 51,
     KapitelGeloescht = 52
