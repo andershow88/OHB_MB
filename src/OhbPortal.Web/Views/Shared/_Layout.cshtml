@@ -469,6 +469,10 @@ else
         s = s.replace(/```([\s\S]*?)```/g, (m, code) => '<pre>' + code.trim() + '</pre>');
         // Inline code
         s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+        // Links [text](url) - VOR Bold/Italic damit Links in **[text](url)** funktionieren
+        s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--mc-primary);text-decoration:underline;">$1</a>');
+        // Dokument-IDs klickbar: #42 - VOR Bold/Italic damit **#42** funktioniert
+        s = s.replace(/(^|[^&\w])#(\d{1,6})\b/g, '$1<a href="/Dokumente/Details/$2" style="color:var(--mc-primary);text-decoration:underline;">#$2</a>');
         // Headings
         s = s.replace(/^###\s+(.+)$/gm, '<h6 style="margin:.5rem 0 .25rem; font-weight:600;">$1</h6>');
         s = s.replace(/^##\s+(.+)$/gm, '<h5 style="margin:.5rem 0 .25rem; font-weight:600;">$1</h5>');
@@ -476,10 +480,6 @@ else
         // Bold / Italic
         s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
         s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
-        // Links [text](url)
-        s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-        // Dokument-IDs klickbar: #42
-        s = s.replace(/(^|[\s(])#(\d{1,6})\b/g, '$1<a href="/Dokumente/Details/$2">#$2</a>');
         // Lists: - or *
         s = s.replace(/(^|\n)(\s*[-*]\s+.+(?:\n\s*[-*]\s+.+)*)/g, (m, p, list) => {
             const items = list.split(/\n/).map(l => l.replace(/^\s*[-*]\s+/, '').trim()).filter(x => x);
