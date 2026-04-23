@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using OhbPortal.Application.DTOs;
 using OhbPortal.Application.Interfaces;
 using OhbPortal.Domain.Enums;
+using ClosedXML.Excel;
 using UglyToad.PdfPig;
 
 namespace OhbPortal.Web.Controllers;
@@ -470,13 +471,22 @@ public class AiAssistentController : BaseController
                         sb.AppendLine($"- {a.Dateiname} ({a.ContentType}, {a.DateigroesseBytes / 1024} KB)");
 
                     if (frageLower.Contains("anhang") || frageLower.Contains("pdf") ||
-                        frageLower.Contains("datei") || frageLower.Contains("inhalt"))
+                        frageLower.Contains("datei") || frageLower.Contains("inhalt") ||
+                        frageLower.Contains("excel") || frageLower.Contains("xlsm") ||
+                        frageLower.Contains("xlsx") || frageLower.Contains("tabelle"))
                     {
                         var pdfText = await ExtrahierePdfInhalt(treffer.Anhaenge);
                         if (!string.IsNullOrWhiteSpace(pdfText))
                         {
                             sb.AppendLine("\n**Extrahierter PDF-Inhalt (Auszug):**");
                             sb.AppendLine(Kuerzen(pdfText, 4000));
+                        }
+
+                        var excelText = await ExtrahiereExcelInhalt(treffer.Anhaenge);
+                        if (!string.IsNullOrWhiteSpace(excelText))
+                        {
+                            sb.AppendLine("\n**Extrahierter Excel-Inhalt (Auszug):**");
+                            sb.AppendLine(Kuerzen(excelText, 4000));
                         }
                     }
                 }
@@ -563,6 +573,56 @@ public class AiAssistentController : BaseController
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "PDF-Extraktion fehlgeschlagen für {Datei}", anhang.Dateiname);
+            }
+        }
+        return sb.ToString().Trim();
+    }
+
+    // ── Excel-Extraktion (xlsx, xlsm) ──────────────────────────────────────────
+    private async Task<string> ExtrahiereExcelInhalt(ICollection<Domain.Entities.Anhang> anhaenge)
+    {
+        var sb = new StringBuilder();
+        foreach (var anhang in anhaenge
+                     .Where(a => a.Dateiname.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) ||
+                                 a.Dateiname.EndsWith(".xlsm", StringComparison.OrdinalIgnoreCase) ||
+                                 a.ContentType.Contains("spreadsheet", StringComparison.OrdinalIgnoreCase) ||
+                                 a.ContentType.Contains("excel", StringComparison.OrdinalIgnoreCase))
+                     .Take(3))
+        {
+            try
+            {
+                if (!_fileStorage.Existiert(anhang.SpeicherSchluessel)) continue;
+                await using var stream = await _fileStorage.LadenAsync(anhang.SpeicherSchluessel);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                ms.Position = 0;
+                using var workbook = new XLWorkbook(ms);
+
+                sb.AppendLine($"### Aus: {anhang.Dateiname}");
+                foreach (var ws in workbook.Worksheets.Take(5))
+                {
+                    sb.AppendLine($"#### Blatt: {ws.Name}");
+                    var rangeUsed = ws.RangeUsed();
+                    if (rangeUsed == null) { sb.AppendLine("_(leer)_"); continue; }
+
+                    var rowCount = 0;
+                    foreach (var row in rangeUsed.RowsUsed().Take(50))
+                    {
+                        var cells = row.CellsUsed().Select(c => c.GetFormattedString()).ToList();
+                        if (cells.Count == 0) continue;
+                        sb.AppendLine(string.Join(" | ", cells));
+                        rowCount++;
+                    }
+
+                    var totalRows = rangeUsed.RowCount();
+                    if (totalRows > 50)
+                        sb.AppendLine($"_... ({totalRows - 50} weitere Zeilen)_");
+                    sb.AppendLine();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Excel-Extraktion fehlgeschlagen für {Datei}", anhang.Dateiname);
             }
         }
         return sb.ToString().Trim();
