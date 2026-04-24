@@ -119,12 +119,16 @@
                 @if (ViewData["Breadcrumb"] != null) { @Html.Raw(ViewData["Breadcrumb"]) }
             </div>
 
-            <div class="ai-topbar-search" style="flex:1; margin-right:auto; margin-left:.5rem; position:relative;">
-                <i class="bi bi-stars" style="position:absolute; left:.85rem; top:50%; transform:translateY(-50%); color:var(--mc-gold); pointer-events:none; font-size:1.1rem;"></i>
-                <input type="text" id="aiTopbarInput"
-                       placeholder='Frag den KI-Assistenten… (z.B. "Finde Dokumente zu Compliance")'
-                       onkeydown="aiTopbarKeydown(event)"
-                       style="width:100%; padding:.6rem 1rem .6rem 2.5rem; border:1px solid var(--mc-border); border-radius:var(--mc-radius-sm); background:var(--mc-surface); color:var(--mc-text); font-size:.95rem;" />
+            <div class="mc-topbar-search" id="topbarSearch" style="flex:1; position:relative; display:flex; align-items:center;">
+                <i class="bi bi-stars" style="position:absolute; left:14px; font-size:1.1rem; color:var(--mc-gold); pointer-events:none; z-index:2;"></i>
+                <input type="text" id="aiTopbarInput" class="mc-topbar-search-input"
+                       placeholder="Frage an den KI-Assistenten stellen &hellip;"
+                       autocomplete="off"
+                       onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();topbarKiSenden();}">
+                <button class="mc-topbar-search-btn" onclick="topbarKiSenden()" title="Absenden">
+                    <i class="bi bi-arrow-right-circle-fill"></i>
+                </button>
+                <div class="mc-topbar-search-dropdown" id="topbarDropdown"></div>
             </div>
 
             <div class="mc-topbar-right" style="flex-shrink:0;">
@@ -204,13 +208,17 @@
             <div class="ai-msg ai-msg-assistant">
                 <div class="ai-msg-bubble" style="background:var(--mc-surface); border:1px solid var(--mc-border); padding:.75rem; border-radius:var(--mc-radius-sm); max-width:85%;">
                     <div style="font-size:.75rem; color:var(--mc-text-muted); margin-bottom:.25rem;">KI-Assistent</div>
-                    Hallo! Ich helfe dir, Dokumente, Richtlinien und Inhalte im OHB-Portal zu finden.<br/>
+                    Hallo! Ich helfe Ihnen, Dokumente, Richtlinien und Inhalte im OHB-Portal zu finden.<br/><br/>
+                    <div style="background:rgba(0,81,90,0.06); border-radius:8px; padding:.6rem .8rem; margin-bottom:.5rem; font-size:.82rem;">
+                        <i class="bi bi-info-circle" style="color:var(--mc-primary);"></i>
+                        <strong>Tipp:</strong> Sie k&ouml;nnen Ihre Fragen entweder hier im Chat oder oben in der <strong>Suchleiste</strong> stellen &ndash; beides nutzt denselben Assistenten und liefert die gleichen Antworten.
+                    </div>
                     <small>Beispiele:</small>
                     <ul style="margin:.5rem 0 0 1rem; padding:0; font-size:.85rem;">
-                        <li>"Finde Dokumente zu Compliance"</li>
-                        <li>"Was steht in Dokument #42?"</li>
-                        <li>"Zeig mir die zuletzt geänderten Dokumente"</li>
-                        <li>"Welche Kapitel gibt es?"</li>
+                        <li>&bdquo;Finde Dokumente zu Compliance&ldquo;</li>
+                        <li>&bdquo;Was steht in Dokument #42?&ldquo;</li>
+                        <li>&bdquo;Zeig mir die zuletzt ge&auml;nderten Dokumente&ldquo;</li>
+                        <li>&bdquo;Welche Kapitel gibt es?&ldquo;</li>
                     </ul>
                 </div>
             </div>
@@ -442,16 +450,47 @@ else
         if (cont) cont.innerHTML = '<div class="ai-msg ai-msg-assistant"><div class="ai-msg-bubble" style="background:var(--mc-surface); border:1px solid var(--mc-border); padding:.75rem; border-radius:var(--mc-radius-sm);"><div style="font-size:.75rem; color:var(--mc-text-muted); margin-bottom:.25rem;">KI-Assistent</div>Verlauf geleert. Stelle eine neue Frage!</div></div>';
     }
 
-    function aiTopbarKeydown(e) {
-        if (e.key === 'Enter') {
-            const val = e.target.value.trim();
-            if (!val) return;
-            aiOeffnen();
-            document.getElementById('aiInput').value = val;
-            e.target.value = '';
-            aiSendenAusModal();
+    // ===== Topbar KI-Suche mit Dropdown =====
+    let topbarBesetzt = false;
+
+    async function topbarKiSenden() {
+        const inp = document.getElementById('aiTopbarInput');
+        const frage = inp?.value.trim();
+        if (!frage || topbarBesetzt) return;
+        topbarBesetzt = true;
+
+        const dd = document.getElementById('topbarDropdown');
+        dd.innerHTML = '<div class="topbar-ki-header"><i class="bi bi-stars"></i> KI-Assistent</div><div class="topbar-ki-loading"><div class="spinner"></div> Antwort wird erstellt&hellip;</div>';
+        dd.classList.add('visible');
+
+        try {
+            const resp = await fetch('/AiAssistent/Fragen', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ frage, verlauf: [] })
+            });
+            const data = await resp.json();
+            if (data.error) {
+                dd.innerHTML = '<div class="topbar-ki-header"><i class="bi bi-stars"></i> KI-Assistent</div><div style="color:var(--mc-warning);">Fehler: ' + data.error + '</div>';
+            } else if (data.aktion) {
+                dd.innerHTML = '<div class="topbar-ki-header"><i class="bi bi-stars"></i> KI-Assistent</div><div class="ai-msg-bubble">Diese Aktion erfordert eine Best&auml;tigung. Bitte nutzen Sie den <strong>Chat unten rechts</strong> (<i class="bi bi-stars"></i>) f&uuml;r Aktionen wie Dokumente erstellen oder bearbeiten.</div>';
+            } else {
+                dd.innerHTML = '<div class="topbar-ki-header"><i class="bi bi-stars"></i> KI-Assistent</div><div class="ai-msg-bubble">' + aiMarkdown(data.antwort || '') + '</div>';
+            }
+        } catch {
+            dd.innerHTML = '<div class="topbar-ki-header"><i class="bi bi-stars"></i> KI-Assistent</div><div style="color:var(--mc-warning);">Verbindung fehlgeschlagen.</div>';
+        } finally {
+            topbarBesetzt = false;
         }
     }
+
+    document.addEventListener('click', function(e) {
+        const dd = document.getElementById('topbarDropdown');
+        const search = document.getElementById('topbarSearch');
+        if (dd && search && !search.contains(e.target)) {
+            dd.classList.remove('visible');
+        }
+    });
 
     function aiInputKeydown(e) {
         if (e.key === 'Enter' && !e.shiftKey) {

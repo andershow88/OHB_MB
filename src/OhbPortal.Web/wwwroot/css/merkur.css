@@ -240,6 +240,78 @@ a:hover { color: var(--mc-primary-dark); }
     font-size: 0.8rem;
 }
 
+/* ---- Topbar KI-Suchleiste ---- */
+.mc-topbar-search-input {
+    width: 100%;
+    padding: 0.6rem 3rem 0.6rem 2.6rem;
+    border: 1.5px solid var(--mc-border);
+    border-radius: var(--mc-radius);
+    background: var(--mc-bg);
+    color: var(--mc-text-dark);
+    font-size: 0.88rem;
+    font-family: inherit;
+    outline: none;
+    transition: var(--mc-transition);
+}
+.mc-topbar-search-input::placeholder { color: var(--mc-text-muted); }
+.mc-topbar-search-input:focus {
+    border-color: var(--mc-primary);
+    box-shadow: 0 0 0 3px rgba(0,81,90,0.1);
+    background: var(--mc-white);
+}
+.mc-topbar-search-btn {
+    position: absolute; right: 6px;
+    background: none; border: none;
+    color: var(--mc-primary); font-size: 1.35rem;
+    cursor: pointer; padding: 0.25rem; border-radius: 50%;
+    transition: var(--mc-transition); display: flex; align-items: center;
+}
+.mc-topbar-search-btn:hover { color: var(--mc-primary-dark); transform: scale(1.1); }
+.mc-topbar-search-dropdown {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: var(--mc-white); border: 1px solid var(--mc-border);
+    border-radius: var(--mc-radius); box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+    max-height: 70vh; overflow-y: auto; z-index: 500;
+    padding: 1rem 1.25rem; line-height: 1.6; font-size: 0.9rem;
+    animation: topbarDropIn 0.2s ease;
+}
+.mc-topbar-search-dropdown.visible { display: block; }
+@keyframes topbarDropIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+.mc-topbar-search-dropdown .topbar-ki-header {
+    display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;
+    padding-bottom: 0.6rem; border-bottom: 1px solid var(--mc-border);
+    font-size: 0.78rem; color: var(--mc-text-muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+}
+.mc-topbar-search-dropdown .topbar-ki-header i { color: var(--mc-gold); font-size: 1rem; }
+.topbar-ki-loading {
+    display: flex; align-items: center; gap: 0.5rem;
+    color: var(--mc-text-muted); font-size: 0.85rem; padding: 0.5rem 0;
+}
+.topbar-ki-loading .spinner {
+    width: 18px; height: 18px; border: 2px solid var(--mc-border);
+    border-top-color: var(--mc-primary); border-radius: 50%;
+    animation: topbarSpin 0.7s linear infinite;
+}
+@keyframes topbarSpin { to { transform: rotate(360deg); } }
+.mc-topbar-search-dropdown .ai-msg-bubble { border: none; padding: 0; }
+.mc-topbar-search-dropdown .ai-msg-bubble p:last-child { margin-bottom: 0; }
+.mc-topbar-search-dropdown .ai-msg-bubble ul,
+.mc-topbar-search-dropdown .ai-msg-bubble ol { margin: .25rem 0 .25rem 1.25rem; padding: 0; }
+.mc-topbar-search-dropdown .ai-msg-bubble pre { background: rgba(0,0,0,.04); padding: .5rem; border-radius: 6px; font-size: .8rem; white-space: pre-wrap; }
+.mc-topbar-search-dropdown .ai-msg-bubble code { background: rgba(0,0,0,.05); padding: .1rem .3rem; border-radius: 3px; font-size: .85em; }
+.mc-topbar-search-dropdown .ai-msg-bubble strong { color: var(--mc-text-dark); }
+.mc-topbar-search-dropdown .ai-msg-bubble a { color: var(--mc-primary); font-weight: 600; text-decoration: underline; }
+
+[data-theme="dark"] .mc-topbar-search-input { background: #252538; border-color: var(--mc-border); color: var(--mc-text); }
+[data-theme="dark"] .mc-topbar-search-input:focus { border-color: var(--mc-primary); box-shadow: 0 0 0 3px rgba(90,171,181,0.15); background: #1c1c26; }
+[data-theme="dark"] .mc-topbar-search-btn { color: var(--mc-primary); }
+[data-theme="dark"] .mc-topbar-search-dropdown { background: var(--mc-bg-card); border-color: var(--mc-border); box-shadow: 0 20px 40px rgba(0,0,0,0.5); color: var(--mc-text); }
+[data-theme="dark"] .mc-topbar-search-dropdown .topbar-ki-header { border-bottom-color: var(--mc-border); }
+[data-theme="dark"] .mc-topbar-search-dropdown .ai-msg-bubble strong { color: var(--mc-text-dark); }
+[data-theme="dark"] .mc-topbar-search-dropdown .ai-msg-bubble pre { background: rgba(255,255,255,0.04); }
+[data-theme="dark"] .mc-topbar-search-dropdown .ai-msg-bubble code { background: rgba(255,255,255,0.06); }
+
 .mc-sidebar-toggle {
     background: none;
     border: none;
