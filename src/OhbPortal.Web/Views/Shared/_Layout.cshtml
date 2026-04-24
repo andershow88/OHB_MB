@@ -112,12 +112,9 @@
 
     <div class="mc-main">
         <header class="mc-topbar" style="gap:.75rem;">
-            <button class="mc-sidebar-toggle d-lg-none" id="sidebarToggle" aria-label="Menü öffnen">
+            <button class="mc-sidebar-toggle d-lg-none" id="sidebarToggle" aria-label="Men&uuml; &ouml;ffnen">
                 <i class="bi bi-list"></i>
             </button>
-            <div class="mc-breadcrumb">
-                @if (ViewData["Breadcrumb"] != null) { @Html.Raw(ViewData["Breadcrumb"]) }
-            </div>
 
             <div class="mc-topbar-search" id="topbarSearch" style="flex:1; position:relative; display:flex; align-items:center;">
                 <i class="bi bi-stars" style="position:absolute; left:14px; font-size:1.1rem; color:var(--mc-gold); pointer-events:none; z-index:2;"></i>
