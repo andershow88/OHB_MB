@@ -116,17 +116,32 @@
                 <i class="bi bi-list"></i>
             </button>
 
-            <div class="mc-topbar-search" id="topbarSearch" style="flex:1; position:relative; display:flex; align-items:center;">
-                <i class="bi bi-stars" style="position:absolute; left:14px; font-size:1.1rem; color:var(--mc-gold); pointer-events:none; z-index:2;"></i>
-                <input type="text" id="aiTopbarInput" class="mc-topbar-search-input"
-                       placeholder="Frage an den KI-Assistenten stellen &hellip;"
-                       autocomplete="off"
-                       onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();topbarKiSenden();}">
-                <button class="mc-topbar-search-btn" onclick="topbarKiSenden()" title="Absenden">
-                    <i class="bi bi-arrow-right-circle-fill"></i>
+            <form action="/Search" method="get" id="topbarSearchForm"
+                  style="flex:1; display:flex; align-items:center; gap:0;" autocomplete="off">
+                <input type="hidden" name="mode" id="topbarMode" value="smart" />
+                <button type="button" class="topbar-pick-btn topbar-pick-smart"
+                        onclick="topbarSetMode('smart')" title="Suche ohne KI"
+                        style="border-radius:var(--mc-radius-sm,8px) 0 0 var(--mc-radius-sm,8px); border:1.5px solid var(--mc-border,#ddd); border-right:none; height:42px; padding:0 .8rem; display:flex; align-items:center; gap:.35rem; background:var(--mc-bg-card,#fff); color:var(--mc-text-muted,#999); font-size:.82rem; font-weight:600; cursor:pointer; white-space:nowrap; transition:all .2s;">
+                    <i class="bi bi-cpu"></i><span class="d-none d-md-inline">Suche ohne KI</span>
                 </button>
-                <div class="mc-topbar-search-dropdown" id="topbarDropdown"></div>
-            </div>
+                <button type="button" class="topbar-pick-btn topbar-pick-ai"
+                        onclick="topbarSetMode('ai')" title="KI-Suche"
+                        style="border:1.5px solid var(--mc-border,#ddd); border-right:none; height:42px; padding:0 .8rem; display:flex; align-items:center; gap:.35rem; background:var(--mc-bg-card,#fff); color:var(--mc-text-muted,#999); font-size:.82rem; font-weight:600; cursor:pointer; white-space:nowrap; border-radius:0; transition:all .2s;">
+                    <i class="bi bi-stars"></i><span class="d-none d-md-inline">KI-Suche</span>
+                </button>
+                <div style="flex:1; display:flex; align-items:center; border:1.5px solid var(--mc-border,#ddd); border-left:none; border-radius:0 var(--mc-radius-sm,8px) var(--mc-radius-sm,8px) 0; background:var(--mc-bg,#f5f5f5); height:42px; position:relative; overflow:hidden; transition:border-color .2s;"
+                     id="topbarSearchBar">
+                    <div id="topbarLocked" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:.45rem;background:var(--mc-bg,#f5f5f5);color:var(--mc-text-muted,#999);font-size:.84rem;font-weight:500;z-index:2;pointer-events:none;">
+                        <i class="bi bi-lock"></i><span>Suchmethode w&auml;hlen</span>
+                    </div>
+                    <input id="topbarSearchInput" name="q" type="text" disabled
+                           style="flex:1;border:none;background:transparent;color:var(--mc-text,#333);font-size:.88rem;outline:none;padding:0 .75rem;height:100%;font-family:inherit;" />
+                    <button type="submit" id="topbarSubmit" disabled title="Suchen"
+                            style="flex-shrink:0;width:38px;height:100%;border:none;background:transparent;color:var(--mc-text-muted,#999);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-arrow-right-circle-fill"></i>
+                    </button>
+                </div>
+            </form>
 
             <div class="mc-topbar-right" style="flex-shrink:0;">
                 <span class="mc-topbar-date d-none d-md-inline">
@@ -447,29 +462,47 @@ else
         if (cont) cont.innerHTML = '<div class="ai-msg ai-msg-assistant"><div class="ai-msg-bubble" style="background:var(--mc-surface); border:1px solid var(--mc-border); padding:.75rem; border-radius:var(--mc-radius-sm);"><div style="font-size:.75rem; color:var(--mc-text-muted); margin-bottom:.25rem;">KI-Assistent</div>Verlauf geleert. Stelle eine neue Frage!</div></div>';
     }
 
-    // ===== Topbar KI-Suche mit Dropdown =====
-    let topbarBesetzt = false;
+    // ===== Topbar Suchleiste: Mode-Toggle =====
+    function topbarSetMode(mode) {
+        document.getElementById('topbarMode').value = mode;
+        var input = document.getElementById('topbarSearchInput');
+        var submit = document.getElementById('topbarSubmit');
+        var locked = document.getElementById('topbarLocked');
+        locked.style.display = 'none';
+        input.disabled = false;
+        submit.disabled = false;
+        document.querySelectorAll('.topbar-pick-btn').forEach(function(b) {
+            b.style.background = 'var(--mc-bg-card,#fff)';
+            b.style.color = 'var(--mc-text-muted,#999)';
+            b.style.borderColor = 'var(--mc-border,#ddd)';
+        });
+        if (mode === 'ai') {
+            input.placeholder = 'KI-Suche: z.B. Welche Dokumente behandeln Sicherheit?';
+            var btn = document.querySelector('.topbar-pick-ai');
+            btn.style.background = 'linear-gradient(135deg,#6a5a8a,#8a6abf)';
+            btn.style.color = '#fff';
+            btn.style.borderColor = '#6a5a8a';
+            submit.style.color = '#8a6abf';
+        } else {
+            input.placeholder = 'Suche ohne KI: Titel, Beschreibung, Inhalt, Tags ...';
+            var btn = document.querySelector('.topbar-pick-smart');
+            btn.style.background = 'var(--mc-navy,#00515A)';
+            btn.style.color = '#fff';
+            btn.style.borderColor = 'var(--mc-navy,#00515A)';
+            submit.style.color = 'var(--mc-navy,#00515A)';
+        }
+        input.focus();
+    }
 
-    async function topbarKiSenden() {
-        const inp = document.getElementById('aiTopbarInput');
-        const frage = inp?.value.trim();
-        if (!frage || topbarBesetzt) return;
-        topbarBesetzt = true;
+    // ===== Topbar KI-Suche entfernt – läuft jetzt über /Search =====
 
-        const dd = document.getElementById('topbarDropdown');
-        dd.innerHTML = '<div class="topbar-ki-header"><i class="bi bi-stars"></i> KI-Assistent</div><div class="topbar-ki-loading"><div class="spinner"></div> Antwort wird erstellt&hellip;</div>';
-        dd.classList.add('visible');
+    function topbarKiSenden() {}
 
-        try {
-            const resp = await fetch('/AiAssistent/Fragen', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ frage, verlauf: [] })
-            });
-            const data = await resp.json();
-            if (data.error) {
-                dd.innerHTML = '<div class="topbar-ki-header"><i class="bi bi-stars"></i> KI-Assistent</div><div style="color:var(--mc-warning);">Fehler: ' + data.error + '</div>';
-            } else if (data.aktion) {
+    /*  Legacy-Code entfernt
+    if (false) {
+        var dd = null;
+        var data = {};
+        if (data.error) {
                 dd.innerHTML = '<div class="topbar-ki-header"><i class="bi bi-stars"></i> KI-Assistent</div><div class="ai-msg-bubble">Diese Aktion erfordert eine Best&auml;tigung. Bitte nutzen Sie den <strong>Chat unten rechts</strong> (<i class="bi bi-stars"></i>) f&uuml;r Aktionen wie Dokumente erstellen oder bearbeiten.</div>';
             } else {
                 dd.innerHTML = '<div class="topbar-ki-header"><i class="bi bi-stars"></i> KI-Assistent</div><div class="ai-msg-bubble">' + aiMarkdown(data.antwort || '') + '</div>';
@@ -480,14 +513,7 @@ else
             topbarBesetzt = false;
         }
     }
-
-    document.addEventListener('click', function(e) {
-        const dd = document.getElementById('topbarDropdown');
-        const search = document.getElementById('topbarSearch');
-        if (dd && search && !search.contains(e.target)) {
-            dd.classList.remove('visible');
-        }
-    });
+    */
 
     function aiInputKeydown(e) {
         if (e.key === 'Enter' && !e.shiftKey) {

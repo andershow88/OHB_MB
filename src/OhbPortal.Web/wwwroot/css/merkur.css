@@ -2002,3 +2002,23 @@ a:hover { color: var(--mc-primary-dark); }
 [data-theme="dark"] [style*="color: #000"] {
     color: var(--mc-text) !important;
 }
+
+/* ── Result Filter (Live-Filter in Suchergebnissen) ───────────────── */
+.result-filter-wrap {
+    display: flex; align-items: center; gap: .4rem;
+    border: 1.5px solid var(--mc-border); border-radius: 8px;
+    padding: .3rem .6rem; background: var(--mc-bg);
+    transition: border-color .2s;
+}
+.result-filter-wrap:focus-within { border-color: var(--mc-navy); }
+.result-filter-wrap i { color: var(--mc-text-muted); font-size: .85rem; }
+.result-filter-input {
+    border: none; background: transparent; color: var(--mc-text);
+    font-size: .8rem; outline: none; font-family: inherit; width: 150px;
+}
+.result-filter-input::placeholder { color: var(--mc-text-muted); }
+.result-filter-count { font-size: .7rem; font-weight: 600; color: var(--mc-navy); white-space: nowrap; }
+
+[data-theme="dark"] .result-filter-wrap { border-color: var(--mc-border); background: var(--mc-bg); }
+[data-theme="dark"] .result-filter-input { color: var(--mc-text); }
+[data-theme="dark"] .result-filter-input::placeholder { color: var(--mc-text-muted); }

@@ -36,6 +36,7 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 
+builder.Services.AddScoped<OhbPortal.Web.Services.SmartSearchService>();
 builder.Services.AddHttpClient();
 
 builder.Services.AddAuthentication("OhbAuth")

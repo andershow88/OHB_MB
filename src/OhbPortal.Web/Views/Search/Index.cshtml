@@ -1,0 +1,330 @@
+@using OhbPortal.Domain.Entities
+@using OhbPortal.Web.Services
+@using OhbPortal.Web.Controllers
+@model SearchViewModel
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Suche";
+    var isAi = Model.Mode == "ai";
+    var isSmart = !isAi;
+}
+
+<div class="mc-page-header">
+    <div>
+        <h1 class="mc-page-title"><i class="bi bi-search me-2"></i>Globale Suche</h1>
+        @if (Model.Searched && isSmart)
+        {
+            <p class="mc-page-subtitle">
+                @Model.TotalResults Ergebnisse für „@Model.Query"
+                <span class="ms-2" style="color:var(--mc-text-muted); font-size:0.78rem;">
+                    <i class="bi bi-lightning-fill me-1"></i>@Model.ElapsedMs ms · BM25 + Synonyme + Fuzzy
+                </span>
+            </p>
+            @if (Model.ExpandedTokens.Length > Model.SearchTokens.Length)
+            {
+                <div class="mt-1" style="font-size:0.74rem; color:var(--mc-text-muted);">
+                    <i class="bi bi-diagram-3 me-1"></i>Erweitert:
+                    @foreach (var t in Model.ExpandedTokens.Where(t => !Model.SearchTokens.Contains(t)))
+                    {
+                        <span class="badge bg-light text-muted border me-1" style="font-size:0.7rem;">@t</span>
+                    }
+                </div>
+            }
+        }
+        else if (!Model.Searched)
+        {
+            <p class="mc-page-subtitle">Dokumente und Kapitel durchsuchen</p>
+        }
+    </div>
+</div>
+
+<!-- ── Such-Card ─────────────────────────────────────────────────────── -->
+<div class="mc-card mb-4">
+    <div class="mc-card-body" style="padding:1.25rem 1.5rem;">
+        <div class="d-flex gap-2 mb-3">
+            <button type="button" class="btn @(isSmart ? "btn-primary" : "btn-outline-secondary")" style="font-size:0.84rem;" onclick="setMode('smart')">
+                <i class="bi bi-cpu me-1"></i>Suche ohne KI
+            </button>
+            <button type="button" class="btn @(isAi ? "btn-primary" : "btn-outline-secondary")" style="font-size:0.84rem; @(isAi ? "background:linear-gradient(135deg,#6a5a8a,#8a6abf);border-color:#6a5a8a;" : "")" onclick="setMode('ai')">
+                <i class="bi bi-stars me-1"></i>KI-Suche
+            </button>
+        </div>
+        <form method="get" id="searchForm" class="d-flex gap-2">
+            <input type="hidden" name="mode" id="searchMode" value="@Model.Mode" />
+            <input type="text" name="q" value="@Model.Query" class="form-control"
+                   id="searchInput"
+                   placeholder="@(isAi ? "KI-Suche: z.B. Welche Dokumente behandeln Sicherheit?" : "Suche ohne KI: Titel, Beschreibung, Inhalt, Tags ...")"
+                   style="font-size:0.9rem; height:46px;" autofocus />
+            <button type="submit" class="btn btn-primary" style="white-space:nowrap; height:46px;">
+                <i class="bi bi-search me-1"></i> Suchen
+            </button>
+        </form>
+        <div class="mt-2" style="font-size:0.74rem; color:var(--mc-text-muted);">
+            @if (isSmart)
+            {
+                <i class="bi bi-info-circle me-1"></i>@:BM25-Volltextsuche mit Synonymen und Fuzzy-Matching über alle Dokumente und Kapitel
+            }
+            else
+            {
+                <i class="bi bi-info-circle me-1"></i>@:Gleiche KI-Suche wie unten links im KI-Assistenten – versteht natürliche Sprache
+            }
+        </div>
+    </div>
+</div>
+
+<!-- ── Smart Results: Dokumente ──────────────────────────────────────── -->
+@if (isSmart && Model.Searched && !Model.HasResults)
+{
+    <div class="mc-card">
+        <div class="mc-card-body text-center py-5 text-muted">
+            <i class="bi bi-search fs-2 d-block mb-2 opacity-25"></i>
+            Keine Ergebnisse für „@Model.Query" gefunden.
+            <div class="mt-3">
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setMode('ai'); document.getElementById('searchForm').submit();">
+                    <i class="bi bi-stars me-1"></i> Mit KI-Suche versuchen
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isSmart && Model.Dokumente.Any())
+{
+    <div class="mc-card mb-4">
+        <div class="mc-card-header">
+            <h2 class="mc-card-title"><i class="bi bi-file-earmark-text"></i> Dokumente (<span id="dokVisCount">@Model.Dokumente.Count</span>)</h2>
+            <div class="d-flex align-items-center gap-2">
+                <div class="result-filter-wrap">
+                    <i class="bi bi-funnel"></i>
+                    <input type="text" class="result-filter-input" id="dokFilter"
+                           placeholder="Ergebnisse filtern ..." oninput="filterTable('dok')" />
+                    <span class="result-filter-count" id="dokFilterCount"></span>
+                </div>
+                <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size:0.72rem; font-weight:600;">BM25</span>
+            </div>
+        </div>
+        <div class="mc-table-wrapper">
+            <table class="mc-table" id="dokTable">
+                <thead>
+                    <tr>
+                        <th style="width:50px;">Relevanz</th>
+                        <th>Dokument</th>
+                        <th class="d-none d-md-table-cell">Kapitel</th>
+                        <th class="d-none d-md-table-cell">Status</th>
+                        <th class="d-none d-md-table-cell">Treffer</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Dokumente)
+                {
+                    var pct = Model.MaxDokScore > 0 ? (int)Math.Round(r.Score / Model.MaxDokScore * 100) : 0;
+                    var barColor = pct >= 80 ? "var(--mc-navy,#00515A)" : pct >= 50 ? "var(--mc-gold,#C8A96E)" : "var(--mc-text-muted,#999)";
+                    var statusClass = r.Dokument.Status switch {
+                        DokumentStatus.Freigegeben => "bg-success bg-opacity-10 text-success",
+                        DokumentStatus.InFreigabe => "bg-warning bg-opacity-10 text-warning",
+                        DokumentStatus.Entwurf => "bg-secondary bg-opacity-10 text-secondary",
+                        DokumentStatus.Abgelehnt => "bg-danger bg-opacity-10 text-danger",
+                        _ => "bg-secondary bg-opacity-10 text-secondary"
+                    };
+                    var statusText = r.Dokument.Status switch {
+                        DokumentStatus.Freigegeben => "Freigegeben",
+                        DokumentStatus.InFreigabe => "In Freigabe",
+                        DokumentStatus.Entwurf => "Entwurf",
+                        DokumentStatus.Abgelehnt => "Abgelehnt",
+                        DokumentStatus.Archiviert => "Archiviert",
+                        _ => r.Dokument.Status.ToString()
+                    };
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:50px;height:6px;background:var(--mc-border,#ddd);border-radius:100px;overflow:hidden;">
+                                    <div style="width:@(pct)%;height:100%;border-radius:100px;background:@barColor;"></div>
+                                </div>
+                                <span style="font-size:0.72rem;color:var(--mc-text-muted);">@(pct)%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <a asp-controller="Dokumente" asp-action="Details" asp-route-id="@r.Dokument.Id"
+                               class="fw-semibold text-decoration-none" style="color:var(--mc-text);">
+                                @r.Dokument.Titel
+                            </a>
+                            @if (!string.IsNullOrEmpty(r.Dokument.Kurzbeschreibung))
+                            {
+                                <div class="small text-muted" style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                    @r.Dokument.Kurzbeschreibung
+                                </div>
+                            }
+                        </td>
+                        <td class="d-none d-md-table-cell" style="font-size:0.82rem; color:var(--mc-text-muted);">
+                            @r.Dokument.Kapitel?.Titel
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            <span class="badge @statusClass" style="font-size:0.7rem;">@statusText</span>
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            @foreach (var f in r.MatchedFields) { <span class="badge bg-light text-muted border" style="font-size:0.66rem;">@f</span> }
+                            <div style="font-size:0.62rem;color:var(--mc-text-muted);margin-top:2px;">@r.MatchMethod</div>
+                        </td>
+                        <td style="text-align:right;">
+                            <a asp-controller="Dokumente" asp-action="Details" asp-route-id="@r.Dokument.Id" class="btn btn-sm btn-outline-secondary" style="padding:0.2rem 0.5rem;">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (isSmart && Model.Kapitel.Any())
+{
+    <div class="mc-card mb-4">
+        <div class="mc-card-header">
+            <h2 class="mc-card-title"><i class="bi bi-folder2-open"></i> Kapitel (<span id="kapVisCount">@Model.Kapitel.Count</span>)</h2>
+            <div class="d-flex align-items-center gap-2">
+                <div class="result-filter-wrap">
+                    <i class="bi bi-funnel"></i>
+                    <input type="text" class="result-filter-input" id="kapFilter"
+                           placeholder="Ergebnisse filtern ..." oninput="filterTable('kap')" />
+                    <span class="result-filter-count" id="kapFilterCount"></span>
+                </div>
+                <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size:0.72rem; font-weight:600;">BM25</span>
+            </div>
+        </div>
+        <div class="mc-table-wrapper">
+            <table class="mc-table" id="kapTable">
+                <thead><tr><th style="width:50px;">Relevanz</th><th>Kapitel</th><th class="d-none d-md-table-cell">Treffer</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var r in Model.Kapitel)
+                {
+                    var pct = Model.MaxKapScore > 0 ? (int)Math.Round(r.Score / Model.MaxKapScore * 100) : 0;
+                    var barColor = pct >= 80 ? "var(--mc-navy,#00515A)" : pct >= 50 ? "var(--mc-gold,#C8A96E)" : "var(--mc-text-muted,#999)";
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:50px;height:6px;background:var(--mc-border,#ddd);border-radius:100px;overflow:hidden;">
+                                    <div style="width:@(pct)%;height:100%;border-radius:100px;background:@barColor;"></div>
+                                </div>
+                                <span style="font-size:0.72rem;color:var(--mc-text-muted);">@(pct)%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <a asp-controller="Kapitel" asp-action="Index" asp-route-id="@r.Kapitel.Id"
+                               class="fw-semibold text-decoration-none" style="color:var(--mc-text);">
+                                @if (!string.IsNullOrEmpty(r.Kapitel.Icon)) { <i class="bi bi-@r.Kapitel.Icon me-1"></i> }
+                                @r.Kapitel.Titel
+                            </a>
+                            @if (!string.IsNullOrEmpty(r.Kapitel.Beschreibung))
+                            {
+                                <div class="small text-muted">@r.Kapitel.Beschreibung</div>
+                            }
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            @foreach (var f in r.MatchedFields) { <span class="badge bg-light text-muted border" style="font-size:0.66rem;">@f</span> }
+                            <div style="font-size:0.62rem;color:var(--mc-text-muted);margin-top:2px;">@r.MatchMethod</div>
+                        </td>
+                        <td style="text-align:right;">
+                            <a asp-controller="Kapitel" asp-action="Index" asp-route-id="@r.Kapitel.Id" class="btn btn-sm btn-outline-secondary" style="padding:0.2rem 0.5rem;">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<!-- ── AI Results ────────────────────────────────────────────────────── -->
+@if (isAi)
+{
+    <div class="mc-card mb-4">
+        <div class="mc-card-header">
+            <h2 class="mc-card-title"><i class="bi bi-stars"></i> KI-Antwort</h2>
+            <span class="badge" style="font-size:0.72rem; font-weight:600; background:linear-gradient(135deg,#f0eaf7,#e2d8f0); color:#6a5a8a;">OpenAI</span>
+        </div>
+        <div class="mc-card-body" id="aiSearchResult" style="min-height:100px;">
+            @if (Model.Searched)
+            {
+                <div class="d-flex align-items-center gap-2 text-muted">
+                    <div class="spinner-border spinner-border-sm"></div>
+                    <span style="font-size:0.85rem;">KI verarbeitet Ihre Anfrage ...</span>
+                </div>
+            }
+            else
+            {
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-stars fs-2 d-block mb-2 opacity-25"></i>
+                    Geben Sie eine Frage ein und drücken Sie „Suchen"
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+    function setMode(m) {
+        document.getElementById('searchMode').value = m;
+        var input = document.getElementById('searchInput');
+        input.placeholder = m === 'ai'
+            ? 'KI-Suche: z.B. Welche Dokumente behandeln Sicherheit?'
+            : 'Suche ohne KI: Titel, Beschreibung, Inhalt, Tags ...';
+    }
+
+    function filterTable(type) {
+        var input = document.getElementById(type + 'Filter');
+        var table = document.getElementById(type + 'Table');
+        var countEl = document.getElementById(type + 'VisCount');
+        var filterCountEl = document.getElementById(type + 'FilterCount');
+        if (!input || !table) return;
+        var term = input.value.trim().toLowerCase();
+        var rows = table.querySelectorAll('tbody tr');
+        var visible = 0, total = rows.length;
+        rows.forEach(function(row) {
+            if (!term) { row.style.display = ''; visible++; return; }
+            if (row.textContent.toLowerCase().indexOf(term) !== -1) { row.style.display = ''; visible++; }
+            else { row.style.display = 'none'; }
+        });
+        if (countEl) countEl.textContent = visible;
+        if (filterCountEl) filterCountEl.textContent = term ? visible + ' / ' + total : '';
+    }
+</script>
+@if (isAi && Model.Searched && !string.IsNullOrWhiteSpace(Model.Query))
+{
+    <script>
+        (async function() {
+            var query = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Query));
+            var container = document.getElementById('aiSearchResult');
+            try {
+                var res = await fetch('/AiAssistent/Fragen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ frage: query, verlauf: [] })
+                });
+                var data = await res.json();
+                if (data.error) {
+                    container.innerHTML = '<div class="text-danger"><i class="bi bi-exclamation-triangle me-1"><\/i>' + data.error + '<\/div>';
+                } else {
+                    container.innerHTML = '<div style="font-size:0.9rem;line-height:1.65;">' + formatMd(data.antwort) + '<\/div>';
+                }
+            } catch (e) {
+                container.innerHTML = '<div class="text-danger">Verbindungsfehler.<\/div>';
+            }
+        })();
+        function formatMd(t) {
+            return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                .replace(/\*\*(.+?)\*\*/g,'<strong>$1<\/strong>')
+                .replace(/\*(.+?)\*/g,'<em>$1<\/em>')
+                .replace(/`(.+?)`/g,'<code>$1<\/code>')
+                .replace(/^#{1,3}\s+(.+)$/gm,'<strong style="display:block;margin:0.8rem 0 0.3rem;">$1<\/strong>')
+                .replace(/^[-*]\s+(.+)$/gm,'<li>$1<\/li>')
+                .replace(/\n\n+/g,'<\/p><p>').replace(/\n/g,'<br>');
+        }
+    </script>
+}
+}
