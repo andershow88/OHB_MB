@@ -671,12 +671,18 @@ else
         s = s.replace(/```([\s\S]*?)```/g, (m, code) => '<pre>' + code.trim() + '</pre>');
         // Inline code
         s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
-        // Links [text](url) - VOR Bold/Italic damit Links in **[text](url)** funktionieren
-        s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--mc-primary);text-decoration:underline;">$1</a>');
-        // Kapitel-Referenzen klickbar: "Kapitel #3" oder "Kapitel 3" - VOR dem allgemeinen #-Pattern
+        // Markdown-Links [text](url) zwischenspeichern, damit Auto-Linking sie nicht verschachtelt
+        const linkPh = [];
+        s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, t, u) => {
+            linkPh.push('<a href="' + u + '" style="color:var(--mc-primary);text-decoration:underline;">' + t + '</a>');
+            return '\x01L' + (linkPh.length - 1) + '\x01';
+        });
+        // Kapitel-Referenzen klickbar: "Kapitel #3" oder "Kapitel 3"
         s = s.replace(/\bKapitel\s+#?(\d{1,6})\b/g, '<a href="/Kapitel/Index/$1" style="color:var(--mc-primary);text-decoration:underline;">Kapitel #$1</a>');
-        // Dokument-IDs klickbar: #42 - VOR Bold/Italic damit **#42** funktioniert
+        // Dokument-IDs klickbar: #42
         s = s.replace(/(^|[^&\w])#(\d{1,6})\b/g, '$1<a href="/Dokumente/Details/$2" style="color:var(--mc-primary);text-decoration:underline;">#$2</a>');
+        // Platzhalter durch echte Markdown-Links ersetzen
+        s = s.replace(/\x01L(\d+)\x01/g, (m, i) => linkPh[+i]);
         // Headings
         s = s.replace(/^###\s+(.+)$/gm, '<h6 style="margin:.5rem 0 .25rem; font-weight:600;">$1</h6>');
         s = s.replace(/^##\s+(.+)$/gm, '<h5 style="margin:.5rem 0 .25rem; font-weight:600;">$1</h5>');
