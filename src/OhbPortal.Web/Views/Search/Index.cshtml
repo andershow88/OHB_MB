@@ -254,9 +254,22 @@
         <div class="mc-card-body" id="aiSearchResult" style="min-height:100px;">
             @if (Model.Searched)
             {
-                <div class="d-flex align-items-center gap-2 text-muted">
-                    <div class="spinner-border spinner-border-sm"></div>
-                    <span style="font-size:0.85rem;">KI verarbeitet Ihre Anfrage ...</span>
+                <div id="aiSearchMessages" style="display:flex; flex-direction:column; gap:.75rem;"></div>
+                <div id="aiSearchFollowup" style="display:none; margin-top:1rem; border-top:1px solid var(--mc-border,#e5e5e5); padding-top:.75rem;">
+                    <form id="aiSearchForm" style="display:flex; gap:.5rem;">
+                        <input type="text" id="aiSearchInput" class="form-control" autocomplete="off"
+                               placeholder="Folgefrage stellen ..."
+                               style="font-size:0.9rem;" />
+                        <button type="submit" id="aiSearchSend" class="btn btn-primary" style="white-space:nowrap;">
+                            <i class="bi bi-send"></i> Senden
+                        </button>
+                        <button type="button" id="aiSearchReset" class="btn btn-outline-secondary" title="Verlauf zurücksetzen" style="white-space:nowrap;">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                    </form>
+                    <div style="font-size:0.75rem; color:var(--mc-text-muted,#999); margin-top:.4rem;">
+                        Hinweis: Aktionen wie Dokumente anlegen oder Status ändern sind nur im Chat unten rechts möglich.
+                    </div>
                 </div>
             }
             else
@@ -318,25 +331,122 @@
 @if (isAi && Model.Searched && !string.IsNullOrWhiteSpace(Model.Query))
 {
     <script>
-        (async function() {
-            var query = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Query));
-            var container = document.getElementById('aiSearchResult');
+        const SS_KEY = 'aiSearchVerlauf';
+        const initialQuery = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Query));
+        let aiSearchVerlauf = [];
+        let aiSearchBesetzt = false;
+
+        function aiSearchAppendNachricht(rolle, text, isLoading) {
+            const cont = document.getElementById('aiSearchMessages');
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'align-self:' + (rolle === 'user' ? 'flex-end' : 'flex-start') + '; max-width:92%;';
+            const bubble = document.createElement('div');
+            const isUser = rolle === 'user';
+            bubble.style.cssText = 'padding:.6rem .85rem; border-radius:.75rem; font-size:.9rem; line-height:1.6; ' +
+                (isUser
+                    ? 'background:linear-gradient(135deg,#6a5a8a,#8a6abf); color:#fff;'
+                    : 'background:var(--mc-surface,#fafafa); color:var(--mc-text,#222); border:1px solid var(--mc-border,#e5e5e5);');
+            if (isLoading) {
+                bubble.innerHTML = '<span class="spinner-border spinner-border-sm me-2" style="vertical-align:-2px;"><\/span>KI denkt nach ...';
+            } else if (isUser) {
+                bubble.textContent = text;
+            } else {
+                bubble.innerHTML = formatMd(text);
+            }
+            wrap.appendChild(bubble);
+            cont.appendChild(wrap);
+            wrap.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            return wrap;
+        }
+
+        async function aiSearchSenden(frage, isInitial) {
+            if (aiSearchBesetzt) return;
+            aiSearchBesetzt = true;
+            const sendBtn = document.getElementById('aiSearchSend');
+            if (sendBtn) sendBtn.disabled = true;
+
+            if (!isInitial) {
+                aiSearchAppendNachricht('user', frage);
+                aiSearchVerlauf.push({ rolle: 'user', text: frage });
+            }
+            const verlaufFuerRequest = aiSearchVerlauf.slice(0, -1).slice(-10);
+            const loadingEl = aiSearchAppendNachricht('assistant', '', true);
+
             try {
-                var res = await fetch('/AiAssistent/Fragen', {
+                const res = await fetch('/AiAssistent/Fragen', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ frage: query, verlauf: [] })
+                    body: JSON.stringify({ frage, verlauf: verlaufFuerRequest })
                 });
-                var data = await res.json();
+                const data = await res.json();
+                loadingEl.remove();
+
                 if (data.error) {
-                    container.innerHTML = '<div class="text-danger"><i class="bi bi-exclamation-triangle me-1"><\/i>' + data.error + '<\/div>';
+                    aiSearchAppendNachricht('assistant', '**Fehler:** ' + data.error);
+                } else if (data.aktion) {
+                    aiSearchAppendNachricht('assistant',
+                        'Die Aktion **' + data.aktion.typ + '** kann nur im Chat-Widget unten rechts ausgeführt werden. Bitte dort fortfahren.');
                 } else {
-                    container.innerHTML = '<div style="font-size:0.9rem;line-height:1.65;">' + formatMd(data.antwort) + '<\/div>';
+                    const antwort = data.antwort || '(leere Antwort)';
+                    aiSearchAppendNachricht('assistant', antwort);
+                    aiSearchVerlauf.push({ rolle: 'assistant', text: antwort });
+                    if (aiSearchVerlauf.length > 12) aiSearchVerlauf = aiSearchVerlauf.slice(-12);
+                    sessionStorage.setItem(SS_KEY, JSON.stringify({ initialQuery, verlauf: aiSearchVerlauf }));
                 }
+                document.getElementById('aiSearchFollowup').style.display = '';
+                document.getElementById('aiSearchInput').focus();
             } catch (e) {
-                container.innerHTML = '<div class="text-danger">Verbindungsfehler.<\/div>';
+                loadingEl.remove();
+                aiSearchAppendNachricht('assistant', '**Fehler:** Verbindung zum KI-Dienst fehlgeschlagen.');
+            } finally {
+                aiSearchBesetzt = false;
+                if (sendBtn) sendBtn.disabled = false;
             }
+        }
+
+        (function init() {
+            if (!initialQuery) return;
+            const stored = sessionStorage.getItem(SS_KEY);
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    if (parsed && parsed.initialQuery === initialQuery && Array.isArray(parsed.verlauf) && parsed.verlauf.length > 0) {
+                        aiSearchVerlauf = parsed.verlauf;
+                        parsed.verlauf.forEach(function(n) {
+                            aiSearchAppendNachricht(n.rolle === 'assistant' ? 'assistant' : 'user', n.text);
+                        });
+                        document.getElementById('aiSearchFollowup').style.display = '';
+                        document.getElementById('aiSearchInput').focus();
+                        return;
+                    }
+                } catch (e) { /* ignore, fall through to fresh start */ }
+            }
+            aiSearchAppendNachricht('user', initialQuery);
+            aiSearchVerlauf = [{ rolle: 'user', text: initialQuery }];
+            aiSearchSenden(initialQuery, true);
         })();
+
+        document.getElementById('aiSearchForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const inp = document.getElementById('aiSearchInput');
+            const t = inp.value.trim();
+            if (!t || aiSearchBesetzt) return;
+            inp.value = '';
+            aiSearchSenden(t, false);
+        });
+
+        document.getElementById('aiSearchReset')?.addEventListener('click', function() {
+            sessionStorage.removeItem(SS_KEY);
+            aiSearchVerlauf = [];
+            document.getElementById('aiSearchMessages').innerHTML = '';
+            document.getElementById('aiSearchFollowup').style.display = 'none';
+            if (initialQuery) {
+                aiSearchAppendNachricht('user', initialQuery);
+                aiSearchVerlauf = [{ rolle: 'user', text: initialQuery }];
+                aiSearchSenden(initialQuery, true);
+            }
+        });
+
         function formatMd(t) {
             if (!t) return '';
             var s = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
