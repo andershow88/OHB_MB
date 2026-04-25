@@ -59,7 +59,8 @@
                    id="searchInput"
                    placeholder="@(isAi ? "KI-Suche: z.B. Welche Dokumente behandeln Sicherheit?" : "Suche ohne KI: Titel, Beschreibung, Inhalt, Tags ...")"
                    style="font-size:0.9rem; height:46px;" autofocus />
-            <button type="submit" class="btn btn-primary" style="white-space:nowrap; height:46px;">
+            <button type="submit" class="btn" id="searchSubmitBtn"
+                    style="white-space:nowrap; height:46px; padding:0 1.4rem; font-weight:600; font-size:0.88rem; border-radius:8px; color:#fff; border:1.5px solid; box-shadow:0 1px 3px rgba(0,0,0,.08); @(isAi ? "background:linear-gradient(135deg,#6a5a8a,#8a6abf); border-color:#6a5a8a;" : "background:linear-gradient(135deg,#003D45,#00515A); border-color:#00515A;")">
                 <i class="bi bi-search me-1"></i> Suchen
             </button>
         </form>
@@ -256,15 +257,21 @@
             {
                 <div id="aiSearchMessages" style="display:flex; flex-direction:column; gap:.75rem;"></div>
                 <div id="aiSearchFollowup" style="display:none; margin-top:1rem; border-top:1px solid var(--mc-border,#e5e5e5); padding-top:.75rem;">
-                    <form id="aiSearchForm" style="display:flex; gap:.5rem;">
+                    <form id="aiSearchForm" style="display:flex; gap:.5rem; align-items:stretch;">
                         <input type="text" id="aiSearchInput" class="form-control" autocomplete="off"
                                placeholder="Folgefrage stellen ..."
-                               style="font-size:0.9rem;" />
-                        <button type="submit" id="aiSearchSend" class="btn btn-primary" style="white-space:nowrap;">
-                            <i class="bi bi-send"></i> Senden
+                               style="font-size:0.9rem; height:42px;" />
+                        <button type="submit" id="aiSearchSend"
+                                style="white-space:nowrap; height:42px; padding:0 1.25rem; font-weight:600; font-size:0.85rem; border-radius:8px; color:#fff; border:1.5px solid #6a5a8a; background:linear-gradient(135deg,#6a5a8a,#8a6abf); box-shadow:0 1px 3px rgba(0,0,0,.08);">
+                            <i class="bi bi-send me-1"></i> Senden
                         </button>
-                        <button type="button" id="aiSearchReset" class="btn btn-outline-secondary" title="Verlauf zurücksetzen" style="white-space:nowrap;">
-                            <i class="bi bi-arrow-counterclockwise"></i>
+                        <button type="button" id="aiSearchThumbUp" title="Hilfreich – Konversation beenden"
+                                style="height:42px; width:42px; padding:0; border-radius:8px; border:1.5px solid var(--mc-border,#ddd); background:var(--mc-bg-card,#fff); color:#28a745; font-size:1.05rem; transition:all .15s;">
+                            <i class="bi bi-hand-thumbs-up"></i>
+                        </button>
+                        <button type="button" id="aiSearchThumbDown" title="Nicht hilfreich – Konversation beenden"
+                                style="height:42px; width:42px; padding:0; border-radius:8px; border:1.5px solid var(--mc-border,#ddd); background:var(--mc-bg-card,#fff); color:#dc3545; font-size:1.05rem; transition:all .15s;">
+                            <i class="bi bi-hand-thumbs-down"></i>
                         </button>
                     </form>
                     <div style="font-size:0.75rem; color:var(--mc-text-muted,#999); margin-top:.4rem;">
@@ -395,6 +402,9 @@
                 }
                 document.getElementById('aiSearchFollowup').style.display = '';
                 document.getElementById('aiSearchInput').focus();
+                // Topbar-Suchfeld leeren - neue Eingabe oben startet bewusst eine neue Suche
+                const topbarInput = document.getElementById('searchInput');
+                if (topbarInput) topbarInput.value = '';
             } catch (e) {
                 loadingEl.remove();
                 aiSearchAppendNachricht('assistant', '**Fehler:** Verbindung zum KI-Dienst fehlgeschlagen.');
@@ -402,6 +412,27 @@
                 aiSearchBesetzt = false;
                 if (sendBtn) sendBtn.disabled = false;
             }
+        }
+
+        function aiSearchKonversationBeenden(positiv) {
+            sessionStorage.removeItem(SS_KEY);
+            aiSearchVerlauf = [];
+            const cont = document.getElementById('aiSearchMessages');
+            if (cont) cont.innerHTML = '';
+            const followup = document.getElementById('aiSearchFollowup');
+            if (followup) followup.style.display = 'none';
+
+            if (cont) {
+                const banner = document.createElement('div');
+                banner.style.cssText = 'padding:1rem 1.25rem; background:var(--mc-surface,#fafafa); border:1px dashed var(--mc-border,#ddd); border-radius:8px; text-align:center; font-size:0.9rem; color:var(--mc-text-muted,#666);';
+                banner.innerHTML = (positiv
+                    ? '<i class="bi bi-hand-thumbs-up-fill text-success me-1"></i> Danke für dein Feedback! '
+                    : '<i class="bi bi-hand-thumbs-down-fill text-danger me-1"></i> Danke für dein Feedback. ')
+                    + 'Diese Konversation wurde beendet. Stelle oben eine neue Frage, um einen neuen Chat zu starten.';
+                cont.appendChild(banner);
+            }
+            const topbarInput = document.getElementById('searchInput');
+            if (topbarInput) { topbarInput.value = ''; topbarInput.focus(); }
         }
 
         (function init() {
@@ -435,16 +466,11 @@
             aiSearchSenden(t, false);
         });
 
-        document.getElementById('aiSearchReset')?.addEventListener('click', function() {
-            sessionStorage.removeItem(SS_KEY);
-            aiSearchVerlauf = [];
-            document.getElementById('aiSearchMessages').innerHTML = '';
-            document.getElementById('aiSearchFollowup').style.display = 'none';
-            if (initialQuery) {
-                aiSearchAppendNachricht('user', initialQuery);
-                aiSearchVerlauf = [{ rolle: 'user', text: initialQuery }];
-                aiSearchSenden(initialQuery, true);
-            }
+        document.getElementById('aiSearchThumbUp')?.addEventListener('click', function() {
+            aiSearchKonversationBeenden(true);
+        });
+        document.getElementById('aiSearchThumbDown')?.addEventListener('click', function() {
+            aiSearchKonversationBeenden(false);
         });
 
         function formatMd(t) {
