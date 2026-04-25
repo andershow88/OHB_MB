@@ -390,8 +390,13 @@ public class AiAssistentController : BaseController
         **Hinweise:**
         - Antworte auf Deutsch, präzise, freundlich, strukturiert.
         - Verwende Markdown.
-        - Verweise auf Dokumente mit #42 (wird im Chat klickbar).
         - Erfinde keine Daten, die nicht in den Systemdaten stehen.
+
+        **Verlinkung (sehr wichtig):**
+        Erzeuge bei jeder Erwähnung eines konkreten Dokuments oder Kapitels einen klickbaren Markdown-Link, damit der Nutzer direkt dorthin springen kann.
+        - Dokumente: `[Titel #42](/Dokumente/Details/42)` — die Zahl ist die Dokument-ID aus den Systemdaten.
+        - Kapitel: `[Kapitelname](/Kapitel/Index/3)` — die Zahl ist die Kapitel-ID aus den Systemdaten (siehe Kapitel-Übersicht).
+        - Schreibe niemals nur "Dokument 42" oder "Kapitel 3" ohne Link, wenn ID und Name aus den Systemdaten bekannt sind.
         """;
 
     // ── Kontext-Aufbau (DB-Abfragen) ──────────────────────────────────────────

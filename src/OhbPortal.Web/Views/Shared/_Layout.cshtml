@@ -437,7 +437,9 @@ else
             + 's=s.replace(/(^|[^*])\\*([^*\\n]+)\\*/g,"$1<em>$2</em>");'
             + 's=s.replace(/^###\\s+(.+)$/gm,"<h5 style=\\"font-weight:600;margin:.5rem 0 .25rem\\">$1</h5>");'
             + 's=s.replace(/^##\\s+(.+)$/gm,"<h4 style=\\"font-weight:600;margin:.6rem 0 .3rem\\">$1</h4>");'
-            + 's=s.replace(/#(\\d+)/g,"<a href=\\""+window.location.origin+"/Dokumente/Details/$1\\" style=\\"color:'+petrol+';font-weight:600\\">#$1</a>");'
+            + 's=s.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g,"<a href=\\"$2\\" style=\\"color:'+petrol+';text-decoration:underline\\">$1</a>");'
+            + 's=s.replace(/\\bKapitel\\s+#?(\\d{1,6})\\b/g,"<a href=\\""+window.location.origin+"/Kapitel/Index/$1\\" style=\\"color:'+petrol+';font-weight:600\\">Kapitel #$1</a>");'
+            + 's=s.replace(/(^|[^&\\w])#(\\d{1,6})\\b/g,"$1<a href=\\""+window.location.origin+"/Dokumente/Details/$2\\" style=\\"color:'+petrol+';font-weight:600\\">#$2</a>");'
             + 's=s.replace(/(^|\\n)((?:\\d+\\.\\s+.+(?:\\n|$))+)/g,function(m,p,list){var items=list.split("\\n").map(function(l){return l.replace(/^\\d+\\.\\s+/,"").trim();}).filter(function(x){return x;});return p+"<ol>"+items.map(function(i){return"<li>"+i+"</li>";}).join("")+"</ol>";});'
             + 's=s.replace(/(^|\\n)(\\s*[-*]\\s+.+(?:\\n\\s*[-*]\\s+.+)*)/g,function(m,p,list){var items=list.split("\\n").map(function(l){return l.replace(/^\\s*[-*]\\s+/,"").trim();}).filter(function(x){return x;});return p+"<ul>"+items.map(function(i){return"<li>"+i+"</li>";}).join("")+"</ul>";});'
             + 'return s.split(/\\n{2,}/).map(function(p){p=p.trim();if(!p||/^<(h[1-6]|ul|ol|pre|table|hr)/.test(p))return p;return"<p style=\\"margin:0 0 .4rem\\">"+p.replace(/\\n/g,"<br/>")+"</p>";}).join("");'
@@ -671,6 +673,8 @@ else
         s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
         // Links [text](url) - VOR Bold/Italic damit Links in **[text](url)** funktionieren
         s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--mc-primary);text-decoration:underline;">$1</a>');
+        // Kapitel-Referenzen klickbar: "Kapitel #3" oder "Kapitel 3" - VOR dem allgemeinen #-Pattern
+        s = s.replace(/\bKapitel\s+#?(\d{1,6})\b/g, '<a href="/Kapitel/Index/$1" style="color:var(--mc-primary);text-decoration:underline;">Kapitel #$1</a>');
         // Dokument-IDs klickbar: #42 - VOR Bold/Italic damit **#42** funktioniert
         s = s.replace(/(^|[^&\w])#(\d{1,6})\b/g, '$1<a href="/Dokumente/Details/$2" style="color:var(--mc-primary);text-decoration:underline;">#$2</a>');
         // Headings
