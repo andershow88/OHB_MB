@@ -42,10 +42,14 @@
 <div class="mc-card mb-4">
     <div class="mc-card-body" style="padding:1.25rem 1.5rem;">
         <div class="d-flex gap-2 mb-3">
-            <button type="button" class="btn @(isSmart ? "btn-primary" : "btn-outline-secondary")" style="font-size:0.84rem;" onclick="setMode('smart')">
+            <button type="button" class="btn btn-sm" id="btnModeSmart"
+                    style="font-size:0.84rem; font-weight:600; padding:.45rem 1rem; border-radius:8px; border:1.5px solid var(--mc-border,#ddd); @(isSmart ? "background:var(--mc-navy,#00515A);color:#fff;border-color:var(--mc-navy,#00515A);" : "background:var(--mc-bg-card,#fff);color:var(--mc-text-muted,#999);")"
+                    onclick="setMode('smart')">
                 <i class="bi bi-cpu me-1"></i>Suche ohne KI
             </button>
-            <button type="button" class="btn @(isAi ? "btn-primary" : "btn-outline-secondary")" style="font-size:0.84rem; @(isAi ? "background:linear-gradient(135deg,#6a5a8a,#8a6abf);border-color:#6a5a8a;" : "")" onclick="setMode('ai')">
+            <button type="button" class="btn btn-sm" id="btnModeAi"
+                    style="font-size:0.84rem; font-weight:600; padding:.45rem 1rem; border-radius:8px; border:1.5px solid var(--mc-border,#ddd); @(isAi ? "background:linear-gradient(135deg,#6a5a8a,#8a6abf);color:#fff;border-color:#6a5a8a;" : "background:var(--mc-bg-card,#fff);color:var(--mc-text-muted,#999);")"
+                    onclick="setMode('ai')">
                 <i class="bi bi-stars me-1"></i>KI-Suche
             </button>
         </div>
@@ -274,6 +278,23 @@
         input.placeholder = m === 'ai'
             ? 'KI-Suche: z.B. Welche Dokumente behandeln Sicherheit?'
             : 'Suche ohne KI: Titel, Beschreibung, Inhalt, Tags ...';
+        var smart = document.getElementById('btnModeSmart');
+        var ai = document.getElementById('btnModeAi');
+        if (m === 'smart') {
+            smart.style.background = 'var(--mc-navy,#00515A)';
+            smart.style.color = '#fff';
+            smart.style.borderColor = 'var(--mc-navy,#00515A)';
+            ai.style.background = 'var(--mc-bg-card,#fff)';
+            ai.style.color = 'var(--mc-text-muted,#999)';
+            ai.style.borderColor = 'var(--mc-border,#ddd)';
+        } else {
+            ai.style.background = 'linear-gradient(135deg,#6a5a8a,#8a6abf)';
+            ai.style.color = '#fff';
+            ai.style.borderColor = '#6a5a8a';
+            smart.style.background = 'var(--mc-bg-card,#fff)';
+            smart.style.color = 'var(--mc-text-muted,#999)';
+            smart.style.borderColor = 'var(--mc-border,#ddd)';
+        }
     }
 
     function filterTable(type) {
