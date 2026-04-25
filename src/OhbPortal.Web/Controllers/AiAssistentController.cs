@@ -85,9 +85,8 @@ public class AiAssistentController : BaseController
 
             var requestBody = new
             {
-                model = "gpt-4o-mini",
-                max_tokens = 1500,
-                temperature = 0.3,
+                model = "gpt-5-mini",
+                max_completion_tokens = 1500,
                 messages,
                 tools = BaueToolDefinitionen(),
                 tool_choice = "auto"
