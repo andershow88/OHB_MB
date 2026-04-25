@@ -19,6 +19,15 @@ public class AdminController : BaseController
         return View(dto);
     }
 
+    // ── KI-Feedback ──────────────────────────────────────────────────────────
+    public async Task<IActionResult> KiFeedback(DateTime? von, DateTime? bis)
+    {
+        DateTime? vonUtc = von.HasValue ? DateTime.SpecifyKind(von.Value, DateTimeKind.Utc) : null;
+        DateTime? bisUtc = bis.HasValue ? DateTime.SpecifyKind(bis.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc) : null;
+        var dto = await _admin.GetKiFeedbackAsync(vonUtc, bisUtc);
+        return View(dto);
+    }
+
     // ── Benutzer ─────────────────────────────────────────────────────────────
 
     public async Task<IActionResult> Benutzer()

@@ -1,0 +1,165 @@
+@model OhbPortal.Application.DTOs.KiFeedbackUebersichtDto
+@{
+    ViewData["Title"] = "KI-Feedback";
+    var von = Model.VonUtc.ToLocalTime();
+    var bis = Model.BisUtc.ToLocalTime();
+    var quote = Model.QuotePositivProzent;
+    var quoteNeg = 100 - quote;
+    var hatDaten = Model.AnzahlGesamt > 0;
+}
+
+<div class="mc-page-header">
+    <div>
+        <h1 class="mc-page-title"><i class="bi bi-stars me-2"></i>KI-Feedback</h1>
+        <p class="mc-page-subtitle">Auswertung der 👍 / 👎 Bewertungen aus der KI-Suche</p>
+    </div>
+    <a asp-action="Index" class="btn-mc-ghost">
+        <i class="bi bi-arrow-left"></i> Zur Administration
+    </a>
+</div>
+
+<!-- Filter -->
+<div class="mc-card mb-4">
+    <div class="mc-card-body" style="padding:1rem 1.25rem;">
+        <form method="get" class="d-flex flex-wrap gap-2 align-items-end">
+            <div>
+                <label class="form-label" style="font-size:0.78rem; font-weight:600; color:var(--mc-text-muted);">Von</label>
+                <input type="date" name="von" value="@von.ToString("yyyy-MM-dd")" class="form-control" style="font-size:0.88rem; height:42px;" />
+            </div>
+            <div>
+                <label class="form-label" style="font-size:0.78rem; font-weight:600; color:var(--mc-text-muted);">Bis</label>
+                <input type="date" name="bis" value="@bis.ToString("yyyy-MM-dd")" class="form-control" style="font-size:0.88rem; height:42px;" />
+            </div>
+            <button type="submit"
+                    style="height:42px; padding:0 1.25rem; font-weight:600; font-size:0.85rem; border-radius:8px; color:#fff; border:1.5px solid #6a5a8a; background:linear-gradient(135deg,#6a5a8a,#8a6abf); box-shadow:0 1px 3px rgba(0,0,0,.08);">
+                <i class="bi bi-funnel me-1"></i> Anwenden
+            </button>
+            <div class="ms-auto d-flex gap-1">
+                <a asp-action="KiFeedback" asp-route-von="@DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-dd")" asp-route-bis="@DateTime.UtcNow.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;">7 Tage</a>
+                <a asp-action="KiFeedback" asp-route-von="@DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd")" asp-route-bis="@DateTime.UtcNow.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;">30 Tage</a>
+                <a asp-action="KiFeedback" asp-route-von="@DateTime.UtcNow.AddDays(-90).ToString("yyyy-MM-dd")" asp-route-bis="@DateTime.UtcNow.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;">90 Tage</a>
+                <a asp-action="KiFeedback" asp-route-von="@DateTime.UtcNow.AddYears(-1).ToString("yyyy-MM-dd")" asp-route-bis="@DateTime.UtcNow.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;">1 Jahr</a>
+            </div>
+        </form>
+        <div class="mt-2" style="font-size:0.78rem; color:var(--mc-text-muted);">
+            Zeitraum: <strong>@von.ToString("dd.MM.yyyy")</strong> – <strong>@bis.ToString("dd.MM.yyyy")</strong>
+            (@((bis - von).Days + 1) Tage)
+        </div>
+    </div>
+</div>
+
+<!-- Stats-Cards + Donut -->
+<div class="row g-3 mb-4">
+    <div class="col-md-7">
+        <div class="mc-kpi-grid">
+            <div class="mc-kpi-card">
+                <div class="mc-kpi-icon blue"><i class="bi bi-chat-square-text"></i></div>
+                <div class="mc-kpi-label">Bewertungen gesamt</div>
+                <div class="mc-kpi-value">@Model.AnzahlGesamt</div>
+                <div class="mc-kpi-sub">im gewählten Zeitraum</div>
+            </div>
+            <div class="mc-kpi-card" style="border-color:#28a74540;">
+                <div class="mc-kpi-icon green"><i class="bi bi-hand-thumbs-up-fill"></i></div>
+                <div class="mc-kpi-label">Positiv</div>
+                <div class="mc-kpi-value" style="color:#28a745;">@Model.AnzahlPositiv</div>
+                <div class="mc-kpi-sub">@(hatDaten ? quote.ToString("0.#") + "%" : "–")</div>
+            </div>
+            <div class="mc-kpi-card" style="border-color:#dc354540;">
+                <div class="mc-kpi-icon" style="background:#dc354520; color:#dc3545;"><i class="bi bi-hand-thumbs-down-fill"></i></div>
+                <div class="mc-kpi-label">Negativ</div>
+                <div class="mc-kpi-value" style="color:#dc3545;">@Model.AnzahlNegativ</div>
+                <div class="mc-kpi-sub">@(hatDaten ? quoteNeg.ToString("0.#") + "%" : "–")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="mc-card h-100">
+            <div class="mc-card-body d-flex flex-column align-items-center justify-content-center" style="padding:1.5rem;">
+                @if (hatDaten)
+                {
+                    <div style="position:relative; width:180px; height:180px; border-radius:50%; background:conic-gradient(#28a745 0% @(quote)%, #dc3545 @(quote)% 100%); box-shadow:0 4px 16px rgba(0,0,0,.08);">
+                        <div style="position:absolute; inset:14px; border-radius:50%; background:var(--mc-bg-card,#fff); display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                            <div style="font-size:1.85rem; font-weight:700; color:#28a745; line-height:1;">@quote.ToString("0.#")%</div>
+                            <div style="font-size:0.75rem; color:var(--mc-text-muted); margin-top:.25rem;">positiv</div>
+                        </div>
+                    </div>
+                    <div class="mt-3 d-flex gap-3" style="font-size:0.82rem;">
+                        <span><span style="display:inline-block; width:10px; height:10px; background:#28a745; border-radius:2px; margin-right:.4rem;"></span>Positiv</span>
+                        <span><span style="display:inline-block; width:10px; height:10px; background:#dc3545; border-radius:2px; margin-right:.4rem;"></span>Negativ</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center text-muted">
+                        <i class="bi bi-pie-chart fs-1 d-block mb-2 opacity-25"></i>
+                        Noch keine Bewertungen im gewählten Zeitraum.
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Eintraege-Tabelle -->
+<div class="mc-card">
+    <div class="mc-card-header">
+        <h2 class="mc-card-title"><i class="bi bi-list-ul"></i> Bewertungen im Detail</h2>
+        @if (Model.Eintraege.Count >= 500)
+        {
+            <span class="badge bg-warning text-dark">Anzeige limitiert auf 500 Einträge — bitte Zeitraum verkleinern</span>
+        }
+        else
+        {
+            <span style="font-size:0.78rem; color:var(--mc-text-muted);">@Model.Eintraege.Count Einträge</span>
+        }
+    </div>
+    <div class="mc-card-body" style="padding:0;">
+        @if (!Model.Eintraege.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-inbox fs-2 d-block mb-2 opacity-25"></i>
+                Keine Einträge im gewählten Zeitraum.
+            </div>
+        }
+        else
+        {
+            <div class="mc-table-wrapper">
+                <table class="mc-table">
+                    <thead>
+                        <tr>
+                            <th style="width:140px;">Zeitpunkt</th>
+                            <th style="width:90px;">Bewertung</th>
+                            <th>Initiale Frage</th>
+                            <th>Letzte Antwort (Auszug)</th>
+                            <th style="width:110px;">Modell</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in Model.Eintraege)
+                        {
+                            var antwortKurz = string.IsNullOrWhiteSpace(e.AntwortLetzte)
+                                ? "–"
+                                : (e.AntwortLetzte.Length > 200 ? e.AntwortLetzte[..200] + "…" : e.AntwortLetzte);
+                            <tr>
+                                <td class="small text-muted" style="white-space:nowrap;">@e.ZeitstempelUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>
+                                    @if (e.Positiv)
+                                    {
+                                        <span class="mc-badge badge-success"><i class="bi bi-hand-thumbs-up-fill me-1"></i>Positiv</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="mc-badge" style="background:#dc354520; color:#dc3545;"><i class="bi bi-hand-thumbs-down-fill me-1"></i>Negativ</span>
+                                    }
+                                </td>
+                                <td>@e.FrageInitial</td>
+                                <td class="small" style="color:var(--mc-text-muted);">@antwortKurz</td>
+                                <td><code style="font-size:0.78rem;">@(e.ModellName ?? "–")</code></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

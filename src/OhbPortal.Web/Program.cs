@@ -117,6 +117,41 @@ using (var scope = app.Services.CreateScope())
         }
         catch (Exception ex2) { log.LogError(ex2, "DB-Seed auch nach Neuanlage fehlgeschlagen"); }
     }
+
+    // Sicherstellen, dass die KiFeedback-Tabelle in bestehenden DBs existiert
+    // (EnsureCreatedAsync legt nur beim ersten Anlegen Tabellen an, nicht bei Schema-Änderungen)
+    try
+    {
+        var providerName = db.Database.ProviderName ?? string.Empty;
+        var ddl = providerName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase)
+            ? @"CREATE TABLE IF NOT EXISTS ""KiFeedbacks"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""BenutzerId"" INTEGER NULL,
+                    ""FrageInitial"" TEXT NOT NULL,
+                    ""AntwortLetzte"" TEXT NOT NULL,
+                    ""Bewertung"" INTEGER NOT NULL,
+                    ""ZeitstempelUtc"" TEXT NOT NULL,
+                    ""ModellName"" TEXT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_KiFeedbacks_ZeitstempelUtc"" ON ""KiFeedbacks""(""ZeitstempelUtc"");
+                CREATE INDEX IF NOT EXISTS ""IX_KiFeedbacks_Bewertung"" ON ""KiFeedbacks""(""Bewertung"");"
+            : @"CREATE TABLE IF NOT EXISTS ""KiFeedbacks"" (
+                    ""Id"" SERIAL PRIMARY KEY,
+                    ""BenutzerId"" INTEGER NULL,
+                    ""FrageInitial"" TEXT NOT NULL,
+                    ""AntwortLetzte"" TEXT NOT NULL,
+                    ""Bewertung"" INTEGER NOT NULL,
+                    ""ZeitstempelUtc"" TIMESTAMP NOT NULL,
+                    ""ModellName"" VARCHAR(100) NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_KiFeedbacks_ZeitstempelUtc"" ON ""KiFeedbacks""(""ZeitstempelUtc"");
+                CREATE INDEX IF NOT EXISTS ""IX_KiFeedbacks_Bewertung"" ON ""KiFeedbacks""(""Bewertung"");";
+        await db.Database.ExecuteSqlRawAsync(ddl);
+    }
+    catch (Exception ex)
+    {
+        log.LogWarning(ex, "KiFeedbacks-Tabelle konnte nicht angelegt/geprüft werden");
+    }
 }
 
 app.Run();

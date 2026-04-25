@@ -19,6 +19,7 @@ public interface IApplicationDbContext
     DbSet<Kenntnisnahme> Kenntnisnahmen { get; }
     DbSet<DokumentBerechtigung> Berechtigungen { get; }
     DbSet<AuditEintrag> AuditEintraege { get; }
+    DbSet<KiFeedback> KiFeedbacks { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

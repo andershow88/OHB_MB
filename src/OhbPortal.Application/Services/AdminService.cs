@@ -36,7 +36,45 @@ public class AdminService : IAdminService
                 b.Rolle, b.IstAktiv, b.Teams.Count, b.ErstelltAm))
             .ToListAsync();
 
-        return new AdminDashboardDto(anzBen, anzBenAktiv, anzTeams, anzTeamsAktiv, anzDok, letzte);
+        var grenze30 = DateTime.UtcNow.AddDays(-30);
+        var fbPos30 = await _db.KiFeedbacks.CountAsync(f =>
+            f.ZeitstempelUtc >= grenze30 && f.Bewertung == KiFeedbackBewertung.Positiv);
+        var fbNeg30 = await _db.KiFeedbacks.CountAsync(f =>
+            f.ZeitstempelUtc >= grenze30 && f.Bewertung == KiFeedbackBewertung.Negativ);
+
+        return new AdminDashboardDto(anzBen, anzBenAktiv, anzTeams, anzTeamsAktiv, anzDok, letzte,
+            fbPos30, fbNeg30);
+    }
+
+    // ── KI-Feedback ──────────────────────────────────────────────────────────
+
+    public async Task<KiFeedbackUebersichtDto> GetKiFeedbackAsync(DateTime? vonUtc, DateTime? bisUtc)
+    {
+        var bis = bisUtc ?? DateTime.UtcNow;
+        var von = vonUtc ?? bis.AddDays(-30);
+        if (von > bis) (von, bis) = (bis, von);
+
+        var query = _db.KiFeedbacks
+            .Where(f => f.ZeitstempelUtc >= von && f.ZeitstempelUtc <= bis);
+
+        var anzGesamt = await query.CountAsync();
+        var anzPos = await query.CountAsync(f => f.Bewertung == KiFeedbackBewertung.Positiv);
+        var anzNeg = anzGesamt - anzPos;
+        var quote = anzGesamt == 0 ? 0d : Math.Round((double)anzPos / anzGesamt * 100, 1);
+
+        var eintraege = await query
+            .OrderByDescending(f => f.ZeitstempelUtc)
+            .Take(500)
+            .Select(f => new KiFeedbackEintragDto(
+                f.Id,
+                f.ZeitstempelUtc,
+                f.Bewertung == KiFeedbackBewertung.Positiv,
+                f.FrageInitial,
+                f.AntwortLetzte,
+                f.ModellName))
+            .ToListAsync();
+
+        return new KiFeedbackUebersichtDto(von, bis, anzGesamt, anzPos, anzNeg, quote, eintraege);
     }
 
     // ── Benutzer ─────────────────────────────────────────────────────────────

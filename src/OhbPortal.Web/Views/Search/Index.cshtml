@@ -415,6 +415,19 @@
         }
 
         function aiSearchKonversationBeenden(positiv) {
+            // Feedback an Server senden (fire-and-forget; UI wartet nicht darauf)
+            const letzteAntwort = aiSearchVerlauf.filter(function(n){ return n.rolle === 'assistant'; }).slice(-1)[0];
+            fetch('/AiAssistent/Feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    frageInitial: initialQuery || '',
+                    antwortLetzte: letzteAntwort ? letzteAntwort.text : '',
+                    positiv: !!positiv,
+                    modell: 'gpt-4.1-mini'
+                })
+            }).catch(function(){ /* still */ });
+
             sessionStorage.removeItem(SS_KEY);
             aiSearchVerlauf = [];
             const cont = document.getElementById('aiSearchMessages');

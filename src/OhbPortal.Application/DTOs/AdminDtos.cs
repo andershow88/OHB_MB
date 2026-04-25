@@ -100,4 +100,23 @@ public record AdminDashboardDto(
     int AnzahlTeams,
     int AnzahlTeamsAktiv,
     int AnzahlDokumente,
-    IReadOnlyList<BenutzerListeDto> ZuletztAngelegteBenutzer);
+    IReadOnlyList<BenutzerListeDto> ZuletztAngelegteBenutzer,
+    int KiFeedbackPositiv30Tage,
+    int KiFeedbackNegativ30Tage);
+
+public record KiFeedbackEintragDto(
+    int Id,
+    DateTime ZeitstempelUtc,
+    bool Positiv,
+    string FrageInitial,
+    string AntwortLetzte,
+    string? ModellName);
+
+public record KiFeedbackUebersichtDto(
+    DateTime VonUtc,
+    DateTime BisUtc,
+    int AnzahlGesamt,
+    int AnzahlPositiv,
+    int AnzahlNegativ,
+    double QuotePositivProzent,
+    IReadOnlyList<KiFeedbackEintragDto> Eintraege);

@@ -23,4 +23,7 @@ public interface IAdminService
     Task TeamLoeschenAsync(int id, int handelnderBenutzerId);
     Task TeamMitgliedHinzufuegenAsync(int teamId, int benutzerId, int handelnderBenutzerId);
     Task TeamMitgliedEntfernenAsync(int teamId, int benutzerId, int handelnderBenutzerId);
+
+    // KI-Feedback
+    Task<KiFeedbackUebersichtDto> GetKiFeedbackAsync(DateTime? vonUtc, DateTime? bisUtc);
 }

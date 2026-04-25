@@ -22,10 +22,21 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Kenntnisnahme> Kenntnisnahmen => Set<Kenntnisnahme>();
     public DbSet<DokumentBerechtigung> Berechtigungen => Set<DokumentBerechtigung>();
     public DbSet<AuditEintrag> AuditEintraege => Set<AuditEintrag>();
+    public DbSet<KiFeedback> KiFeedbacks => Set<KiFeedback>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
         base.OnModelCreating(mb);
+
+        mb.Entity<KiFeedback>(e =>
+        {
+            e.HasKey(f => f.Id);
+            e.HasIndex(f => f.ZeitstempelUtc);
+            e.HasIndex(f => f.Bewertung);
+            e.Property(f => f.FrageInitial).IsRequired();
+            e.Property(f => f.AntwortLetzte).IsRequired();
+            e.Property(f => f.ModellName).HasMaxLength(100);
+        });
 
         mb.Entity<Benutzer>(e =>
         {

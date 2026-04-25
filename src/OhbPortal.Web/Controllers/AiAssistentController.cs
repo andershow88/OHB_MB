@@ -669,4 +669,41 @@ public class AiAssistentController : BaseController
 
     private static string Kuerzen(string text, int maxLen) =>
         text.Length <= maxLen ? text : text[..maxLen] + "…";
+
+    // ── Feedback persistieren ─────────────────────────────────────────────────
+    public record FeedbackEingabeDto(string FrageInitial, string AntwortLetzte, bool Positiv, string? Modell);
+
+    [HttpPost]
+    public async Task<IActionResult> Feedback([FromBody] FeedbackEingabeDto dto)
+    {
+        if (dto is null || string.IsNullOrWhiteSpace(dto.FrageInitial))
+            return Json(new { ok = false, error = "Ungültige Eingabe" });
+
+        try
+        {
+            var fb = new Domain.Entities.KiFeedback
+            {
+                BenutzerId = AktuellerBenutzerId,
+                FrageInitial = dto.FrageInitial.Length > 4000 ? dto.FrageInitial[..4000] : dto.FrageInitial,
+                AntwortLetzte = string.IsNullOrEmpty(dto.AntwortLetzte)
+                    ? ""
+                    : (dto.AntwortLetzte.Length > 8000 ? dto.AntwortLetzte[..8000] : dto.AntwortLetzte),
+                Bewertung = dto.Positiv
+                    ? Domain.Entities.KiFeedbackBewertung.Positiv
+                    : Domain.Entities.KiFeedbackBewertung.Negativ,
+                ZeitstempelUtc = DateTime.UtcNow,
+                ModellName = string.IsNullOrWhiteSpace(dto.Modell)
+                    ? null
+                    : (dto.Modell.Length > 100 ? dto.Modell[..100] : dto.Modell)
+            };
+            _db.KiFeedbacks.Add(fb);
+            await _db.SaveChangesAsync();
+            return Json(new { ok = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "KI-Feedback konnte nicht gespeichert werden");
+            return Json(new { ok = false });
+        }
+    }
 }

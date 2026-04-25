@@ -15,6 +15,9 @@
         <a asp-action="Teams" class="btn-mc-ghost">
             <i class="bi bi-diagram-2"></i> Teams verwalten
         </a>
+        <a asp-action="KiFeedback" class="btn-mc-ghost">
+            <i class="bi bi-stars"></i> KI-Feedback
+        </a>
     </div>
 </div>
 
@@ -37,6 +40,21 @@
         <div class="mc-kpi-value">@Model.AnzahlDokumente</div>
         <div class="mc-kpi-sub">aktiv (nicht gelöscht)</div>
     </div>
+    <a asp-action="KiFeedback" class="mc-kpi-card" style="text-decoration:none; color:inherit; cursor:pointer; transition:transform .15s, box-shadow .15s;"
+       onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 18px rgba(0,0,0,.08)';"
+       onmouseout="this.style.transform='';this.style.boxShadow='';">
+        <div class="mc-kpi-icon" style="background:linear-gradient(135deg,#6a5a8a,#8a6abf); color:#fff;"><i class="bi bi-stars"></i></div>
+        <div class="mc-kpi-label">KI-Feedback (30 Tage)</div>
+        <div class="mc-kpi-value" style="display:flex; align-items:baseline; gap:.5rem;">
+            <span style="color:#28a745;">@Model.KiFeedbackPositiv30Tage</span>
+            <span style="font-size:1rem; color:var(--mc-text-muted);">/</span>
+            <span style="color:#dc3545;">@Model.KiFeedbackNegativ30Tage</span>
+        </div>
+        <div class="mc-kpi-sub">
+            <i class="bi bi-hand-thumbs-up-fill" style="color:#28a745;"></i> /
+            <i class="bi bi-hand-thumbs-down-fill" style="color:#dc3545;"></i> · zum Dashboard →
+        </div>
+    </a>
 </div>
 
 <div class="mc-card">
