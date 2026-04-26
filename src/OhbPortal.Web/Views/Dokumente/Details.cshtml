@@ -798,7 +798,17 @@
                         }
                     </dd>
                     <dt class="col-5 text-muted">Sichtbar ab</dt><dd class="col-7">@(Model.SichtbarAb?.ToString("dd.MM.yyyy") ?? "–")</dd>
-                    <dt class="col-5 text-muted">Sichtbar bis</dt><dd class="col-7">@(Model.SichtbarBis?.ToString("dd.MM.yyyy") ?? "–")</dd>
+                    <dt class="col-5 text-muted">Sichtbar bis</dt>
+                    <dd class="col-7">
+                        @if (Model.SichtbarBis.HasValue)
+                        {
+                            @Model.SichtbarBis.Value.ToString("dd.MM.yyyy")
+                        }
+                        else
+                        {
+                            <span title="Kein Enddatum gesetzt"><i class="bi bi-infinity me-1" style="color:var(--mc-primary);"></i>Unendlich</span>
+                        }
+                    </dd>
                     <dt class="col-5 text-muted">Prüftermin</dt>
                     <dd class="col-7" style="position:relative;">
                         <span id="prueftermAnzeige" @(istEditor ? "style=cursor:pointer;border-bottom:1px dashed var(--mc-primary);padding-bottom:1px;" : "")

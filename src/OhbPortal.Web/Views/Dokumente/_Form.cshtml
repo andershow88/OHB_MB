@@ -302,8 +302,15 @@
                     </div>
                     <div class="mb-3">
                         <label asp-for="SichtbarBis" class="form-label"></label>
-                        <input asp-for="SichtbarBis" class="form-control" />
-                        <div class="form-text">Optional · ab/bis steuern, in welchem Zeitraum Leser das Dokument sehen.</div>
+                        <div class="d-flex gap-2 align-items-center">
+                            <input asp-for="SichtbarBis" class="form-control" id="SichtbarBis-input" style="flex:1;" />
+                            <button type="button" class="btn-mc-ghost" id="SichtbarBis-unendlich"
+                                    style="font-size:.78rem; padding:.4rem .7rem; white-space:nowrap;"
+                                    title="Kein Enddatum — Dokument ist unbegrenzt sichtbar">
+                                <i class="bi bi-infinity me-1"></i>Unendlich
+                            </button>
+                        </div>
+                        <div class="form-text">Leer = unbegrenzt sichtbar (∞).</div>
                     </div>
                 </div>
 
@@ -656,6 +663,34 @@
                 markDirty();
             });
         });
+
+        // Sichtbar-Bis: "Unendlich"-Button leert das Feld + visuelles Feedback wenn leer
+        const sichtbarBisInput = document.getElementById('SichtbarBis-input');
+        const sichtbarBisUnendlichBtn = document.getElementById('SichtbarBis-unendlich');
+        function updateSichtbarBisHint() {
+            if (!sichtbarBisInput || !sichtbarBisUnendlichBtn) return;
+            if (!sichtbarBisInput.value) {
+                sichtbarBisUnendlichBtn.style.background = 'rgba(0,81,90,.12)';
+                sichtbarBisUnendlichBtn.style.color = 'var(--mc-primary)';
+                sichtbarBisUnendlichBtn.style.borderColor = 'var(--mc-primary)';
+                sichtbarBisUnendlichBtn.innerHTML = '<i class="bi bi-infinity me-1"></i>Unendlich (aktiv)';
+            } else {
+                sichtbarBisUnendlichBtn.style.background = '';
+                sichtbarBisUnendlichBtn.style.color = '';
+                sichtbarBisUnendlichBtn.style.borderColor = '';
+                sichtbarBisUnendlichBtn.innerHTML = '<i class="bi bi-infinity me-1"></i>Unendlich';
+            }
+        }
+        if (sichtbarBisInput && sichtbarBisUnendlichBtn) {
+            sichtbarBisUnendlichBtn.addEventListener('click', function () {
+                sichtbarBisInput.value = '';
+                updateSichtbarBisHint();
+                markDirty();
+            });
+            sichtbarBisInput.addEventListener('change', updateSichtbarBisHint);
+            sichtbarBisInput.addEventListener('input', updateSichtbarBisHint);
+            updateSichtbarBisHint();
+        }
 
         // ─────────────────────────────────────────────────────────────
         // Mitgeltende Dokumente (Verlinkungen) — bestehende Logik
