@@ -10,14 +10,11 @@
         <p class="mc-page-subtitle">Kapitel und Unterkapitel als Baumstruktur</p>
     </div>
     <div class="d-flex gap-2 align-items-center flex-wrap">
-        <button class="btn-mc-outline" onclick="alleKapitelAufklappen()" title="Nur Kapitel-Struktur aufklappen, Dokumente ausblenden" style="font-size:.8rem; padding:.3rem .75rem;">
+        <button id="btn-toggle-kapitel" class="btn-mc-outline" onclick="btnKapitelToggle()" title="Kapitel-Struktur ein-/ausklappen" style="font-size:.8rem; padding:.3rem .75rem;">
             <i class="bi bi-folder2-open"></i> Kapitel aufklappen
         </button>
-        <button class="btn-mc-outline" onclick="alleAufklappen()" title="Alles aufklappen — Kapitel und Dokumente (Alt+Shift+E)" style="font-size:.8rem; padding:.3rem .75rem;">
+        <button id="btn-toggle-alles" class="btn-mc-outline" onclick="btnAllesToggle()" title="Alles inklusive Dokumente ein-/ausklappen (Alt+Shift+E)" style="font-size:.8rem; padding:.3rem .75rem;">
             <i class="bi bi-arrows-expand"></i> Alles aufklappen
-        </button>
-        <button class="btn-mc-outline" onclick="alleZuklappen()" title="Alles zuklappen (Alt+Shift+W)" style="font-size:.8rem; padding:.3rem .75rem;">
-            <i class="bi bi-arrows-collapse"></i> Zuklappen
         </button>
         @if (istEditor)
         {
@@ -357,9 +354,10 @@
             if (id !== null) set.delete(id);
         }
         saveExpandedSet(set);
+        updateToggleButtonLabels();
     }
 
-    function alleAufklappen() {
+    function expandAllInternal() {
         var set = loadExpandedSet();
         document.querySelectorAll('.tree-children').forEach(function (el) {
             el.style.display = '';
@@ -373,6 +371,13 @@
         saveExpandedSet(set);
     }
 
+    function alleAufklappen() {
+        var root = document.getElementById('kapitelBaum');
+        if (root) root.classList.remove('hide-docs');  // Dokumente immer mit anzeigen
+        expandAllInternal();
+        updateToggleButtonLabels();
+    }
+
     function alleZuklappen() {
         document.querySelectorAll('.tree-children').forEach(function (el) {
             el.style.display = 'none';
@@ -384,19 +389,73 @@
         saveExpandedSet(new Set());
         var root = document.getElementById('kapitelBaum');
         if (root) root.classList.remove('hide-docs');
+        updateToggleButtonLabels();
     }
 
     function alleKapitelAufklappen() {
         var root = document.getElementById('kapitelBaum');
-        if (root) root.classList.add('hide-docs');
-        alleAufklappen();
+        if (root) root.classList.add('hide-docs');  // Dokumente ausblenden
+        expandAllInternal();
+        updateToggleButtonLabels();
+    }
+
+    function isAnythingExpanded() {
+        var any = false;
+        document.querySelectorAll('.tree-children').forEach(function (el) {
+            if (el.style.display !== 'none' && !el.classList.contains('collapsed')) any = true;
+        });
+        return any;
+    }
+
+    function btnKapitelToggle() {
+        var root = document.getElementById('kapitelBaum');
+        var hideDocs = root && root.classList.contains('hide-docs');
+        var expanded = isAnythingExpanded();
+        if (hideDocs && expanded) {
+            // bereits in Kapitel-Modus expanded → zuklappen
+            alleZuklappen();
+        } else {
+            alleKapitelAufklappen();
+        }
+    }
+
+    function btnAllesToggle() {
+        var root = document.getElementById('kapitelBaum');
+        var hideDocs = root && root.classList.contains('hide-docs');
+        var expanded = isAnythingExpanded();
+        if (expanded && !hideDocs) {
+            // alles voll expanded → zuklappen
+            alleZuklappen();
+        } else {
+            // entweder zugeklappt oder kapitel-only → komplett aufklappen
+            alleAufklappen();
+        }
+    }
+
+    function updateToggleButtonLabels() {
+        var root = document.getElementById('kapitelBaum');
+        var hideDocs = root && root.classList.contains('hide-docs');
+        var expanded = isAnythingExpanded();
+        var btnK = document.getElementById('btn-toggle-kapitel');
+        var btnA = document.getElementById('btn-toggle-alles');
+        if (btnK) {
+            btnK.innerHTML = (hideDocs && expanded)
+                ? '<i class="bi bi-folder"></i> Kapitel zuklappen'
+                : '<i class="bi bi-folder2-open"></i> Kapitel aufklappen';
+        }
+        if (btnA) {
+            btnA.innerHTML = (expanded && !hideDocs)
+                ? '<i class="bi bi-arrows-collapse"></i> Alles zuklappen'
+                : '<i class="bi bi-arrows-expand"></i> Alles aufklappen';
+        }
     }
 
     // Beim ersten Laden den gespeicherten Zustand wiederherstellen
+    function initTreeUI() { applyExpandedState(); updateToggleButtonLabels(); }
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', applyExpandedState);
+        document.addEventListener('DOMContentLoaded', initTreeUI);
     } else {
-        applyExpandedState();
+        initTreeUI();
     }
 
     // ── Soft-Reload: Tree per AJAX austauschen statt Page-Reload ──
@@ -409,6 +468,7 @@
             if (!root) return;
             root.innerHTML = html;
             applyExpandedState();
+            updateToggleButtonLabels();
             if (window.initTreeDnD) window.initTreeDnD();
         } catch (ex) {
             if (window.mcToast) mcToast('Aktualisierung fehlgeschlagen — Seite wird neu geladen.', 'danger');
