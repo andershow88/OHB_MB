@@ -1,6 +1,7 @@
 @model OhbPortal.Application.DTOs.DokumentDetailDto
 @{
     ViewData["Title"] = Model.Titel;
+    ViewData["CompactSidebar"] = true;
     var versionen = ViewBag.Versionen as List<OhbPortal.Application.DTOs.VersionDto> ?? new();
     var audit = ViewBag.Audit as List<OhbPortal.Application.DTOs.AuditDto> ?? new();
     var freigaben = ViewBag.Freigaben as List<OhbPortal.Application.DTOs.FreigabeGruppeDto> ?? new();

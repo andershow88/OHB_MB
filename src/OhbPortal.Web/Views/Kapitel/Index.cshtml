@@ -10,11 +10,17 @@
         <p class="mc-page-subtitle">Kapitel und Unterkapitel als Baumstruktur</p>
     </div>
     <div class="d-flex gap-2 align-items-center flex-wrap">
-        <button class="btn-mc-outline" onclick="alleAufklappen()" title="Alle aufklappen (Alt+Shift+E)" style="font-size:.8rem; padding:.3rem .75rem;">
-            <i class="bi bi-arrows-expand"></i> Alle aufklappen
+        <button class="btn-mc-outline" onclick="alleAufklappen()" title="Alle aufklappen — Kapitel und Dokumente (Alt+Shift+E)" style="font-size:.8rem; padding:.3rem .75rem;">
+            <i class="bi bi-arrows-expand"></i> Alle auf
         </button>
         <button class="btn-mc-outline" onclick="alleZuklappen()" title="Alle zuklappen (Alt+Shift+W)" style="font-size:.8rem; padding:.3rem .75rem;">
-            <i class="bi bi-arrows-collapse"></i> Alle zuklappen
+            <i class="bi bi-arrows-collapse"></i> Alle zu
+        </button>
+        <button class="btn-mc-outline" onclick="alleKapitelAufklappen()" title="Nur Kapitel-Struktur aufklappen, Dokumente ausblenden" style="font-size:.8rem; padding:.3rem .75rem;">
+            <i class="bi bi-folder2-open"></i> Nur Kapitel auf
+        </button>
+        <button class="btn-mc-outline" onclick="alleKapitelZuklappen()" title="Alle Kapitel zuklappen, Dokumente wieder einblenden" style="font-size:.8rem; padding:.3rem .75rem;">
+            <i class="bi bi-folder"></i> Nur Kapitel zu
         </button>
         @if (istEditor)
         {
@@ -79,6 +85,9 @@
     .tree-doc-row[draggable="true"] { cursor: grab; }
     .tree-doc-row[draggable="true"]:active { cursor: grabbing; }
     .tree-row.dnd-dragging { opacity: .45; }
+
+    /* Strukturansicht — Dokumente ausblenden */
+    .tree-root.hide-docs .tree-doc-node { display: none !important; }
     .tree-row.dnd-target-above { box-shadow: inset 0 2px 0 var(--mc-primary); }
     .tree-row.dnd-target-below { box-shadow: inset 0 -2px 0 var(--mc-primary); }
     .tree-row.dnd-target-inside {
@@ -297,7 +306,9 @@
     }
 
     // ── Persistent Expand-State (überlebt Reload + Navigation) ──
-    var EXPAND_KEY = 'ohb-tree-expanded';
+    // v2: alte Keys werden ignoriert (Reset wegen geänderter Logik)
+    var EXPAND_KEY = 'ohb-tree-expanded-v2';
+    try { localStorage.removeItem('ohb-tree-expanded'); } catch (_) {}
     function loadExpandedSet() {
         try { return new Set(JSON.parse(localStorage.getItem(EXPAND_KEY) || '[]')); }
         catch (_) { return new Set(); }
@@ -374,6 +385,20 @@
         });
         document.querySelectorAll('.tree-chevron').forEach(function (c) { c.classList.remove('open'); });
         saveExpandedSet(new Set());
+        var root = document.getElementById('kapitelBaum');
+        if (root) root.classList.remove('hide-docs');
+    }
+
+    function alleKapitelAufklappen() {
+        var root = document.getElementById('kapitelBaum');
+        if (root) root.classList.add('hide-docs');
+        alleAufklappen();
+    }
+
+    function alleKapitelZuklappen() {
+        var root = document.getElementById('kapitelBaum');
+        if (root) root.classList.remove('hide-docs');
+        alleZuklappen();
     }
 
     // Beim ersten Laden den gespeicherten Zustand wiederherstellen
@@ -409,7 +434,7 @@
         }
     });
 
-    // ── Drag-and-Drop (nur Editoren) ──
+    // ── Drag-and-Drop (nur Editoren) — Event-Delegation, kein Re-Binding nach Soft-Reload ──
     @if (istEditor)
     {
         <text>
@@ -426,140 +451,181 @@
                 return el ? el.value : null;
             }
 
-            function bindHandlers() {
-                // Drag-Quelle: Grip-Span (Kapitel) oder draggable-Row (Dokumente)
-                document.querySelectorAll('[draggable="true"]').forEach(function (el) {
-                    // Nur tree-relevante Elemente — keine sonstigen draggable-Elemente
-                    if (!el.classList.contains('tree-grip') && !el.classList.contains('tree-row')) return;
-
-                    el.addEventListener('dragstart', function (e) {
-                        var docLi = el.closest('[data-dokument-id]');
-                        var kapLi = docLi ? null : el.closest('[data-kapitel-id]');
-                        if (!docLi && !kapLi) return;
-
-                        if (docLi) {
-                            dragState = {
-                                type: 'dokument',
-                                id: parseInt(docLi.getAttribute('data-dokument-id')),
-                                kapitelIdOfDoc: parseInt(docLi.getAttribute('data-kapitel-id-of-doc') || '0'),
-                                row: docLi.querySelector(':scope > .tree-row')
-                            };
-                        } else {
-                            dragState = {
-                                type: 'kapitel',
-                                id: parseInt(kapLi.getAttribute('data-kapitel-id')),
-                                row: kapLi.querySelector(':scope > .tree-row')
-                            };
-                        }
-                        if (dragState.row) dragState.row.classList.add('dnd-dragging');
-                        e.dataTransfer.effectAllowed = 'move';
-                        try { e.dataTransfer.setData('text/plain', String(dragState.id)); } catch (_) {}
-                        if (e.dataTransfer.setDragImage && dragState.row) {
-                            e.dataTransfer.setDragImage(dragState.row, 10, 10);
-                        }
-                    });
-                    el.addEventListener('dragend', function () {
-                        if (dragState && dragState.row) dragState.row.classList.remove('dnd-dragging');
-                        clearTargets();
-                        dragState = null;
-                    });
-                });
-
-                // Jede Zeile ist Drop-Ziel
-                document.querySelectorAll('.tree-row').forEach(function (row) {
-                    row.addEventListener('dragover', function (e) {
-                        if (!dragState) return;
-                        var kapLi = row.closest('[data-kapitel-id]');
-                        var docLi = !kapLi ? row.closest('[data-dokument-id]') : null;
-                        if (!kapLi && !docLi) return;
-                        // Self-drop ignorieren
-                        if (kapLi && dragState.type === 'kapitel'
-                            && parseInt(kapLi.getAttribute('data-kapitel-id')) === dragState.id) return;
-                        if (docLi && dragState.type === 'dokument'
-                            && parseInt(docLi.getAttribute('data-dokument-id')) === dragState.id) return;
-
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = 'move';
-                        var rect = row.getBoundingClientRect();
-                        var y = e.clientY - rect.top;
-                        var h = rect.height;
-                        row.classList.remove('dnd-target-above', 'dnd-target-below', 'dnd-target-inside');
-
-                        if (dragState.type === 'dokument') {
-                            // Bei Dokumenten gilt nur "in Kapitel verschieben"
-                            row.classList.add('dnd-target-inside');
-                        } else {
-                            if (y < h * 0.28) row.classList.add('dnd-target-above');
-                            else if (y > h * 0.72) row.classList.add('dnd-target-below');
-                            else row.classList.add('dnd-target-inside');
-                        }
-                    });
-                    row.addEventListener('dragleave', function () {
-                        row.classList.remove('dnd-target-above', 'dnd-target-below', 'dnd-target-inside');
-                    });
-                    row.addEventListener('drop', function (e) {
-                        if (!dragState) return;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        var kapLi = row.closest('[data-kapitel-id]');
-                        var docLi = !kapLi ? row.closest('[data-dokument-id]') : null;
-                        if (!kapLi && !docLi) { clearTargets(); return; }
-
-                        if (kapLi && dragState.type === 'kapitel'
-                            && parseInt(kapLi.getAttribute('data-kapitel-id')) === dragState.id) {
-                            clearTargets(); return;
-                        }
-
-                        var token = getToken();
-                        if (!token) { if (window.mcToast) mcToast('Antiforgery-Token fehlt', 'danger'); return; }
-
-                        var url, fd = new FormData();
-                        fd.append('__RequestVerificationToken', token);
-
-                        if (dragState.type === 'kapitel') {
-                            var targetId = parseInt(kapLi.getAttribute('data-kapitel-id'));
-                            var position = row.classList.contains('dnd-target-above') ? 'before'
-                                          : row.classList.contains('dnd-target-below') ? 'after'
-                                          : 'inside';
-                            url = '/Kapitel/Verschieben';
-                            fd.append('id', String(dragState.id));
-                            fd.append('zielId', String(targetId));
-                            fd.append('position', position);
-                        } else {
-                            var zielKapitelId = kapLi
-                                ? parseInt(kapLi.getAttribute('data-kapitel-id'))
-                                : parseInt(docLi.getAttribute('data-kapitel-id-of-doc') || '0');
-                            if (!zielKapitelId || zielKapitelId === dragState.kapitelIdOfDoc) {
-                                clearTargets(); dragState = null; return;
-                            }
-                            url = '/Dokumente/Verschieben';
-                            fd.append('id', String(dragState.id));
-                            fd.append('zielKapitelId', String(zielKapitelId));
-                        }
-
-                        clearTargets();
-
-                        fetch(url, { method: 'POST', body: fd, credentials: 'same-origin' })
-                            .then(function (res) {
-                                if (res.ok) {
-                                    if (window.mcToast) mcToast('Verschoben.', 'success', { duration: 2000 });
-                                    return reloadTree();
-                                }
-                                return res.text().then(function (t) { throw new Error(t || res.statusText); });
-                            })
-                            .catch(function (err) {
-                                if (window.mcToast) mcToast('Verschieben fehlgeschlagen: ' + (err.message || err), 'danger');
-                            });
-                    });
-                });
+            // Hilfsfunktion: aus einer Row bestimmen, ob sie Doc oder Chapter ist
+            function rowContext(row) {
+                if (!row) return null;
+                var isDoc = row.classList.contains('tree-doc-row');
+                if (isDoc) {
+                    var docLi = row.closest('[data-dokument-id]');
+                    return docLi ? {
+                        kind: 'doc',
+                        docLi: docLi,
+                        docId: parseInt(docLi.getAttribute('data-dokument-id')),
+                        kapitelIdOfDoc: parseInt(docLi.getAttribute('data-kapitel-id-of-doc') || '0')
+                    } : null;
+                } else {
+                    var kapLi = row.closest('[data-kapitel-id]');
+                    return kapLi ? {
+                        kind: 'kapitel',
+                        kapLi: kapLi,
+                        kapitelId: parseInt(kapLi.getAttribute('data-kapitel-id'))
+                    } : null;
+                }
             }
 
-            window.initTreeDnD = bindHandlers;
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', bindHandlers);
-            } else {
-                bindHandlers();
-            }
+            // ── DRAGSTART (Delegation) ──
+            document.addEventListener('dragstart', function (e) {
+                var target = e.target;
+                if (!target || !target.closest) return;
+
+                // Kandidaten: tree-doc-row mit draggable=true, oder tree-grip auf Chapter
+                var docRow = target.closest('.tree-doc-row');
+                var grip = target.closest('.tree-grip');
+
+                // Doc-Drag erkennen
+                if (docRow && docRow.getAttribute('draggable') === 'true') {
+                    var docLi = docRow.closest('[data-dokument-id]');
+                    if (!docLi) return;
+                    dragState = {
+                        type: 'dokument',
+                        id: parseInt(docLi.getAttribute('data-dokument-id')),
+                        kapitelIdOfDoc: parseInt(docLi.getAttribute('data-kapitel-id-of-doc') || '0'),
+                        row: docRow
+                    };
+                }
+                // Chapter-Drag erkennen (Grip auf einer Chapter-Zeile, NICHT in einem Doc)
+                else if (grip && grip.getAttribute('draggable') === 'true' && !grip.closest('[data-dokument-id]')) {
+                    var kapLi = grip.closest('[data-kapitel-id]');
+                    if (!kapLi) return;
+                    dragState = {
+                        type: 'kapitel',
+                        id: parseInt(kapLi.getAttribute('data-kapitel-id')),
+                        row: kapLi.querySelector(':scope > .tree-row')
+                    };
+                }
+                else {
+                    // Nicht für uns relevant
+                    return;
+                }
+
+                if (dragState.row) dragState.row.classList.add('dnd-dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                try { e.dataTransfer.setData('text/plain', String(dragState.id)); } catch (_) {}
+                if (e.dataTransfer.setDragImage && dragState.row) {
+                    e.dataTransfer.setDragImage(dragState.row, 10, 10);
+                }
+            });
+
+            // ── DRAGEND (Delegation) ──
+            document.addEventListener('dragend', function () {
+                if (dragState && dragState.row) dragState.row.classList.remove('dnd-dragging');
+                clearTargets();
+                dragState = null;
+            });
+
+            // ── DRAGOVER (Delegation) ──
+            document.addEventListener('dragover', function (e) {
+                if (!dragState) return;
+                var row = e.target && e.target.closest ? e.target.closest('.tree-row') : null;
+                if (!row) return;
+                var ctx = rowContext(row);
+                if (!ctx) return;
+
+                // Self-drop ignorieren
+                if (dragState.type === 'kapitel' && ctx.kind === 'kapitel' && ctx.kapitelId === dragState.id) return;
+                if (dragState.type === 'dokument' && ctx.kind === 'doc' && ctx.docId === dragState.id) return;
+
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+
+                clearTargets();
+
+                if (dragState.type === 'dokument') {
+                    row.classList.add('dnd-target-inside');
+                } else {
+                    var rect = row.getBoundingClientRect();
+                    var y = e.clientY - rect.top;
+                    var h = rect.height;
+                    if (y < h * 0.28) row.classList.add('dnd-target-above');
+                    else if (y > h * 0.72) row.classList.add('dnd-target-below');
+                    else row.classList.add('dnd-target-inside');
+                }
+            });
+
+            // ── DROP (Delegation) ──
+            document.addEventListener('drop', function (e) {
+                if (!dragState) return;
+                var row = e.target && e.target.closest ? e.target.closest('.tree-row') : null;
+                if (!row) return;
+                var ctx = rowContext(row);
+                if (!ctx) return;
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Self-drop
+                if (dragState.type === 'kapitel' && ctx.kind === 'kapitel' && ctx.kapitelId === dragState.id) {
+                    clearTargets(); return;
+                }
+                if (dragState.type === 'dokument' && ctx.kind === 'doc' && ctx.docId === dragState.id) {
+                    clearTargets(); return;
+                }
+
+                var token = getToken();
+                if (!token) { if (window.mcToast) mcToast('Antiforgery-Token fehlt', 'danger'); return; }
+
+                var url, fd = new FormData();
+                fd.append('__RequestVerificationToken', token);
+
+                if (dragState.type === 'kapitel') {
+                    // Chapter-Verschieben — Ziel muss Chapter sein
+                    if (ctx.kind !== 'kapitel') {
+                        // Drop auf Doc-Row — verwende dessen Parent-Kapitel
+                        var parentKap = row.closest('[data-kapitel-id]');
+                        if (!parentKap) { clearTargets(); return; }
+                        ctx = { kind: 'kapitel', kapitelLi: parentKap, kapitelId: parseInt(parentKap.getAttribute('data-kapitel-id')) };
+                    }
+                    var position = row.classList.contains('dnd-target-above') ? 'before'
+                                  : row.classList.contains('dnd-target-below') ? 'after'
+                                  : 'inside';
+                    url = '/Kapitel/Verschieben';
+                    fd.append('id', String(dragState.id));
+                    fd.append('zielId', String(ctx.kapitelId));
+                    fd.append('position', position);
+                } else {
+                    // Doc-Verschieben — Ziel-Kapitel ermitteln
+                    var zielKapitelId;
+                    if (ctx.kind === 'kapitel') {
+                        zielKapitelId = ctx.kapitelId;
+                    } else {
+                        // Drop auf einer Doc-Zeile -> Doc landet im Kapitel dieses Dokuments
+                        zielKapitelId = ctx.kapitelIdOfDoc;
+                    }
+                    if (!zielKapitelId || zielKapitelId === dragState.kapitelIdOfDoc) {
+                        clearTargets(); dragState = null; return;
+                    }
+                    url = '/Dokumente/Verschieben';
+                    fd.append('id', String(dragState.id));
+                    fd.append('zielKapitelId', String(zielKapitelId));
+                }
+
+                clearTargets();
+
+                fetch(url, { method: 'POST', body: fd, credentials: 'same-origin' })
+                    .then(function (res) {
+                        if (res.ok) {
+                            if (window.mcToast) mcToast('Verschoben ✓', 'success', { duration: 1800 });
+                            return reloadTree();
+                        }
+                        return res.text().then(function (t) { throw new Error(t || res.statusText); });
+                    })
+                    .catch(function (err) {
+                        if (window.mcToast) mcToast('Verschieben fehlgeschlagen: ' + (err.message || err), 'danger');
+                    });
+            });
+
+            // Soft-Reload braucht kein Re-Binding mehr (Delegation)
+            window.initTreeDnD = function () { /* delegated, no-op */ };
         })();
         </text>
     }
