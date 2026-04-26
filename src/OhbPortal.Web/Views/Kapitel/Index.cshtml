@@ -69,12 +69,15 @@
     /* Drag-and-Drop */
     .tree-grip {
         cursor: grab; color: var(--mc-text-muted); font-size: 1rem; padding: 0 .15rem;
-        opacity: .25; transition: opacity .15s, color .15s;
+        opacity: .35; transition: opacity .15s, color .15s;
         user-select: none;
     }
-    .tree-row:hover .tree-grip { opacity: .85; }
+    .tree-grip-visible { opacity: .55; }
+    .tree-row:hover .tree-grip { opacity: 1; }
     .tree-grip:hover { color: var(--mc-primary); }
     .tree-grip:active { cursor: grabbing; }
+    .tree-doc-row[draggable="true"] { cursor: grab; }
+    .tree-doc-row[draggable="true"]:active { cursor: grabbing; }
     .tree-row.dnd-dragging { opacity: .45; }
     .tree-row.dnd-target-above { box-shadow: inset 0 2px 0 var(--mc-primary); }
     .tree-row.dnd-target-below { box-shadow: inset 0 -2px 0 var(--mc-primary); }
@@ -424,13 +427,16 @@
             }
 
             function bindHandlers() {
-                // Grip startet Drag — auf Kapiteln und Dokumenten
-                document.querySelectorAll('.tree-grip').forEach(function (grip) {
-                    grip.addEventListener('dragstart', function (e) {
-                        var docLi = grip.closest('[data-dokument-id]');
-                        var kapLi = docLi ? null : grip.closest('[data-kapitel-id]');
-                        var li = docLi || kapLi;
-                        if (!li) return;
+                // Drag-Quelle: Grip-Span (Kapitel) oder draggable-Row (Dokumente)
+                document.querySelectorAll('[draggable="true"]').forEach(function (el) {
+                    // Nur tree-relevante Elemente — keine sonstigen draggable-Elemente
+                    if (!el.classList.contains('tree-grip') && !el.classList.contains('tree-row')) return;
+
+                    el.addEventListener('dragstart', function (e) {
+                        var docLi = el.closest('[data-dokument-id]');
+                        var kapLi = docLi ? null : el.closest('[data-kapitel-id]');
+                        if (!docLi && !kapLi) return;
+
                         if (docLi) {
                             dragState = {
                                 type: 'dokument',
@@ -452,7 +458,7 @@
                             e.dataTransfer.setDragImage(dragState.row, 10, 10);
                         }
                     });
-                    grip.addEventListener('dragend', function () {
+                    el.addEventListener('dragend', function () {
                         if (dragState && dragState.row) dragState.row.classList.remove('dnd-dragging');
                         clearTargets();
                         dragState = null;
