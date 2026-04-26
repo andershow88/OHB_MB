@@ -781,7 +781,22 @@
                     <dt class="col-5 text-muted">Kapitel</dt><dd class="col-7">@Model.KapitelPfad</dd>
                     <dt class="col-5 text-muted">Verantwortlich</dt><dd class="col-7">@(Model.VerantwortlicherBereich ?? "–")</dd>
                     <dt class="col-5 text-muted">Kategorie</dt><dd class="col-7">@(Model.Kategorie ?? "–")</dd>
-                    <dt class="col-5 text-muted">Schlagworte</dt><dd class="col-7">@(Model.Tags ?? "–")</dd>
+                    <dt class="col-5 text-muted">Schlagworte</dt>
+                    <dd class="col-7">
+                        @if (string.IsNullOrWhiteSpace(Model.Tags))
+                        {
+                            <span class="text-muted">–</span>
+                        }
+                        else
+                        {
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach (var tag in Model.Tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    <span class="mc-tag-pill"><i class="bi bi-tag-fill"></i>@tag</span>
+                                }
+                            </div>
+                        }
+                    </dd>
                     <dt class="col-5 text-muted">Sichtbar ab</dt><dd class="col-7">@(Model.SichtbarAb?.ToString("dd.MM.yyyy") ?? "–")</dd>
                     <dt class="col-5 text-muted">Sichtbar bis</dt><dd class="col-7">@(Model.SichtbarBis?.ToString("dd.MM.yyyy") ?? "–")</dd>
                     <dt class="col-5 text-muted">Prüftermin</dt>

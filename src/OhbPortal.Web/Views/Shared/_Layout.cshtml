@@ -25,7 +25,10 @@
         })();
     </script>
 </head>
-<body class="mc-body">
+@{
+    var compactSidebar = ViewData["CompactSidebar"] is bool b && b;
+}
+<body class="mc-body" data-compact-sidebar="@(compactSidebar ? "1" : "0")">
 
 @if (User.Identity?.IsAuthenticated == true)
 {
@@ -112,8 +115,8 @@
 
     <div class="mc-main">
         <header class="mc-topbar" style="gap:.75rem;">
-            <button class="mc-sidebar-toggle d-lg-none" id="sidebarToggle" aria-label="Men&uuml; &ouml;ffnen">
-                <i class="bi bi-list"></i>
+            <button class="mc-sidebar-toggle" id="sidebarToggle" aria-label="Sidebar ein-/ausblenden" title="Sidebar ein-/ausblenden">
+                <i class="bi bi-layout-sidebar"></i>
             </button>
 
             <form action="/Search" method="get" id="topbarSearchForm"
@@ -366,12 +369,38 @@ else
         const i = document.getElementById('themeIcon');
         if (i) i.className = t === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
     }
-    document.getElementById('sidebarToggle')?.addEventListener('click', function () {
-        const s = document.getElementById('mcSidebar');
-        const o = document.getElementById('sidebarOverlay');
-        s.classList.toggle('open');
-        o.style.display = s.classList.contains('open') ? 'block' : 'none';
-    });
+    // ===== Sidebar-Toggle (Mobile + Desktop) =====
+    (function () {
+        const COLLAPSE_KEY = 'ohb-sidebar-collapsed';
+        const isMobileMq = window.matchMedia('(max-width: 991.98px)');
+
+        // Initialer Zustand auf Desktop
+        function applyDesktopState() {
+            if (isMobileMq.matches) return;
+            const forceCompact = (document.body.getAttribute('data-compact-sidebar') === '1');
+            const stored = localStorage.getItem(COLLAPSE_KEY);
+            const collapse = forceCompact ? true : (stored === '1');
+            document.body.classList.toggle('mc-sidebar-collapsed', collapse);
+        }
+        applyDesktopState();
+        isMobileMq.addEventListener('change', applyDesktopState);
+
+        document.getElementById('sidebarToggle')?.addEventListener('click', function () {
+            if (isMobileMq.matches) {
+                const s = document.getElementById('mcSidebar');
+                const o = document.getElementById('sidebarOverlay');
+                s.classList.toggle('open');
+                o.style.display = s.classList.contains('open') ? 'block' : 'none';
+            } else {
+                const collapsed = document.body.classList.toggle('mc-sidebar-collapsed');
+                // Bei Edit-Seiten nicht in localStorage persistieren — Edit-Pages starten immer kollabiert
+                if (!(document.body.getAttribute('data-compact-sidebar') === '1')) {
+                    localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
+                }
+            }
+        });
+    })();
+
     function closeSidebar() {
         document.getElementById('mcSidebar')?.classList.remove('open');
         document.getElementById('sidebarOverlay').style.display = 'none';

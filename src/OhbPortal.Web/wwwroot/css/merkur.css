@@ -205,6 +205,15 @@ a:hover { color: var(--mc-primary-dark); }
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    transition: margin-left 0.25s ease;
+}
+
+/* Sidebar collapsed (Desktop) — komplett aus dem Layout, mehr Platz für Inhalt */
+@media (min-width: 992px) {
+    .mc-sidebar { transition: transform 0.25s ease; }
+    body.mc-sidebar-collapsed .mc-sidebar { transform: translateX(-100%); }
+    body.mc-sidebar-collapsed .mc-main { margin-left: 0; }
+    body.mc-sidebar-collapsed .mc-content { padding-left: 1.5rem; padding-right: 1.5rem; }
 }
 
 /* ---- Top Bar ---- */
@@ -991,6 +1000,130 @@ a:hover { color: var(--mc-primary-dark); }
 .border-start-gray { border-left: 4px solid var(--mc-primary) !important; }
 .border-start-blue { border-left: 4px solid var(--mc-primary) !important; }
 .section-divider { border-top: 2px solid var(--mc-border); margin: 1.5rem 0; }
+
+/* ============================================================
+   FORM CONTROLS — Modernes Styling für Selects & Inputs
+   ============================================================ */
+.form-control,
+.form-select {
+    border: 1.5px solid var(--mc-border);
+    border-radius: var(--mc-radius-sm, 8px);
+    padding: .55rem .85rem;
+    font-size: .92rem;
+    background-color: var(--mc-bg-card, #fff);
+    color: var(--mc-text);
+    transition: border-color .15s, box-shadow .15s, background-color .15s;
+    box-shadow: none;
+}
+.form-control:hover,
+.form-select:hover {
+    border-color: var(--mc-text-muted);
+}
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--mc-primary);
+    box-shadow: 0 0 0 3px rgba(0,81,90,.15);
+    outline: none;
+}
+.form-control::placeholder {
+    color: var(--mc-text-muted);
+    opacity: .65;
+}
+.form-control-sm,
+.form-select-sm {
+    padding: .35rem .65rem;
+    font-size: .82rem;
+    border-radius: 6px;
+    border-width: 1px;
+}
+
+/* Custom Chevron für Select */
+.form-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2300515a'%3E%3Cpath d='M3.204 5l4.796 4.796L12.796 5H3.204z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right .85rem center;
+    background-size: 12px 12px;
+    padding-right: 2.4rem;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+.form-select-sm {
+    background-position: right .65rem center;
+    background-size: 10px 10px;
+    padding-right: 1.9rem;
+}
+.form-select::-ms-expand { display: none; }
+.form-select:disabled {
+    background-color: var(--mc-bg);
+    color: var(--mc-text-muted);
+    cursor: not-allowed;
+}
+
+/* Checkbox & Radio modernisieren */
+.form-check-input {
+    width: 1.05em; height: 1.05em;
+    border: 1.5px solid var(--mc-border);
+    cursor: pointer;
+    transition: border-color .15s, background-color .15s, box-shadow .15s;
+}
+.form-check-input:hover { border-color: var(--mc-primary); }
+.form-check-input:checked {
+    background-color: var(--mc-primary);
+    border-color: var(--mc-primary);
+}
+.form-check-input:focus {
+    box-shadow: 0 0 0 3px rgba(0,81,90,.18);
+    border-color: var(--mc-primary);
+}
+.form-check-label { cursor: pointer; user-select: none; padding-left: .15rem; }
+
+/* Datepicker (browser-native) etwas freundlicher */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: .55;
+    transition: opacity .15s;
+}
+input[type="date"]:hover::-webkit-calendar-picker-indicator { opacity: 1; }
+
+/* Dark-Mode-Anpassungen für Form-Controls */
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select {
+    background-color: var(--mc-bg-card);
+    border-color: var(--mc-border);
+    color: var(--mc-text);
+}
+[data-theme="dark"] .form-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2390a4ae'%3E%3Cpath d='M3.204 5l4.796 4.796L12.796 5H3.204z'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   TAG-PILLS — kompakte Schlagwort-Anzeige
+   ============================================================ */
+.mc-tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    background: rgba(0,81,90,.08);
+    color: var(--mc-primary);
+    font-size: .72rem;
+    font-weight: 500;
+    padding: .15rem .55rem;
+    border-radius: 999px;
+    line-height: 1.4;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+}
+.mc-tag-pill .bi { font-size: .68rem; opacity: .7; }
+[data-theme="dark"] .mc-tag-pill {
+    background: rgba(0,153,170,.18);
+    color: #79c8d3;
+}
+
+/* dl > dd content darf nicht überlaufen */
+.mc-card dl dd { word-break: break-word; overflow-wrap: anywhere; min-width: 0; }
 
 /* ============================================================
    DARK MODE TOGGLE BUTTON

@@ -1,6 +1,7 @@
 @model OhbPortal.Web.ViewModels.DokumentBearbeitenViewModel
 @{
     ViewData["Title"] = "Dokument bearbeiten";
+    ViewData["CompactSidebar"] = true;
 }
 
 <form asp-action="Bearbeiten" asp-route-id="@Model.Id" method="post" id="dokument-form">
