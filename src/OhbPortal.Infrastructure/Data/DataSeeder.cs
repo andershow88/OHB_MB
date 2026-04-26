@@ -28,6 +28,9 @@ public static class DataSeeder
 
         if (!await db.Dokumente.AnyAsync(d => d.Titel.Contains("Geldwäscheprävention")))
             await SeedDemoDokumenteAsync(db);
+
+        // Zusatzpaket: ~100 freigegebene Dokumente (idempotent über Tag-Marker)
+        await ZusatzDokumenteSeeder.SeedAsync(db);
     }
 
     private static string Hash(string s)
