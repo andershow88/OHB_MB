@@ -215,6 +215,25 @@ public class DokumenteController : BaseController
         return RedirectToAction(nameof(Details), new { id = dokumentId });
     }
 
+    [HttpGet]
+    public async Task<IActionResult> Drucken(int id)
+    {
+        var d = await _svc.GetDetailAsync(id);
+        if (d is null) return NotFound();
+        if (!await _svc.DarfLesenAsync(id, Kontext)) return NotFound();
+        if (d.Druckverbot) return Forbid();
+
+        if (!IstEditor && !IstApprover)
+        {
+            var jetzt = DateTime.UtcNow;
+            var nichtSichtbar = (d.SichtbarAb.HasValue && d.SichtbarAb.Value > jetzt)
+                             || (d.SichtbarBis.HasValue && d.SichtbarBis.Value < jetzt);
+            if (nichtSichtbar) return NotFound();
+        }
+
+        return View(d);
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SchnellAnlegen(string titel, int kapitelId, string? kurzbeschreibung, string? kategorie)
     {

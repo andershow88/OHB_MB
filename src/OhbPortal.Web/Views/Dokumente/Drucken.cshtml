@@ -1,0 +1,273 @@
+@model OhbPortal.Application.DTOs.DokumentDetailDto
+@{
+    Layout = null;
+    var jetzt = DateTime.Now;
+}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@Model.Titel — Druckansicht</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+Pro:wght@400;600&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --paper: #ffffff;
+            --bg: #f1f2f4;
+            --text: #1d2330;
+            --text-muted: #6b7280;
+            --border: #e0e2e6;
+            --primary: #00515a;
+            --gold: #b08a2e;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: var(--text);
+            font-size: 11pt;
+            line-height: 1.55;
+        }
+
+        /* ── Toolbar (nur am Bildschirm sichtbar) ── */
+        .druck-toolbar {
+            position: sticky; top: 0; z-index: 100;
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            padding: .8rem 1.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 1px 4px rgba(0,0,0,.05);
+        }
+        .druck-toolbar a, .druck-toolbar button {
+            display: inline-flex; align-items: center; gap: .35rem;
+            padding: .5rem 1rem; border-radius: 6px; font-size: .88rem;
+            text-decoration: none; cursor: pointer; border: 1px solid var(--border);
+            background: #fff; color: var(--text); font-weight: 500;
+            transition: background .15s, border-color .15s;
+        }
+        .druck-toolbar a:hover { background: #f7f8fa; border-color: var(--primary); color: var(--primary); }
+        .druck-toolbar .btn-print {
+            background: var(--primary); color: #fff; border-color: var(--primary);
+        }
+        .druck-toolbar .btn-print:hover { background: #003e45; border-color: #003e45; }
+        .druck-toolbar .toolbar-info {
+            font-size: .82rem; color: var(--text-muted);
+        }
+
+        /* ── Papier ── */
+        .druck-paper {
+            background: var(--paper);
+            max-width: 210mm;
+            min-height: 297mm;
+            margin: 1.5rem auto;
+            padding: 18mm 18mm 22mm 18mm;
+            box-shadow: 0 4px 18px rgba(0,0,0,.08);
+            border-radius: 2px;
+            position: relative;
+        }
+
+        /* ── Kopfbereich ── */
+        .druck-head {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            gap: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--primary);
+            margin-bottom: 1.4rem;
+        }
+        .druck-head-left { flex: 1; min-width: 0; }
+        .druck-pfad {
+            font-size: .82rem; color: var(--text-muted);
+            margin-bottom: .4rem; letter-spacing: .02em;
+        }
+        .druck-titel {
+            font-family: 'Source Serif Pro', Georgia, serif;
+            font-size: 22pt; font-weight: 700; line-height: 1.15;
+            color: var(--text); margin: 0;
+        }
+        .druck-kurz {
+            margin-top: .55rem; color: var(--text-muted);
+            font-size: 11pt; line-height: 1.45;
+        }
+        .druck-meta-row {
+            display: flex; gap: 1.5rem; flex-wrap: wrap;
+            margin-top: .9rem; font-size: .82rem; color: var(--text-muted);
+        }
+        .druck-meta-row span strong { color: var(--text); font-weight: 600; }
+        .druck-logo {
+            flex-shrink: 0; max-width: 130px; height: auto;
+        }
+
+        /* ── Inhalt ── */
+        .druck-content {
+            font-size: 11pt;
+            line-height: 1.65;
+            color: var(--text);
+        }
+        .druck-content h1, .druck-content h2, .druck-content h3, .druck-content h4 {
+            font-family: 'Source Serif Pro', Georgia, serif;
+            color: var(--text);
+            page-break-after: avoid;
+        }
+        .druck-content h1 { font-size: 18pt; margin: 1.6em 0 .5em; font-weight: 700; }
+        .druck-content h2 {
+            font-size: 14pt; margin: 1.4em 0 .5em; font-weight: 700;
+            border-bottom: 1px solid var(--border); padding-bottom: .25em;
+        }
+        .druck-content h3 { font-size: 12pt; margin: 1.2em 0 .4em; font-weight: 600; }
+        .druck-content h4 { font-size: 11pt; margin: 1.1em 0 .3em; font-weight: 600; }
+        .druck-content p { margin: 0 0 .8em; }
+        .druck-content ul, .druck-content ol { margin: 0 0 .9em 1.4em; padding: 0; }
+        .druck-content li { margin-bottom: .25em; }
+        .druck-content blockquote {
+            border-left: 3px solid var(--gold); background: #faf8f1;
+            padding: .65em 1em; margin: 1em 0; border-radius: 0 4px 4px 0;
+            font-style: italic;
+        }
+        .druck-content code {
+            background: #f3f4f6; padding: .1em .35em;
+            border-radius: 3px; font-size: .9em;
+            font-family: 'SF Mono', 'Consolas', monospace;
+        }
+        .druck-content pre {
+            background: #f3f4f6; padding: .8em 1em; border-radius: 4px;
+            overflow-x: auto; font-size: .88em;
+        }
+        .druck-content table {
+            width: 100%; border-collapse: collapse; margin: 1em 0;
+            page-break-inside: avoid;
+        }
+        .druck-content table th, .druck-content table td {
+            padding: .5em .7em; border: 1px solid var(--border);
+            text-align: left; vertical-align: top;
+        }
+        .druck-content table th {
+            background: #f7f8fa; font-weight: 600;
+        }
+        .druck-content img { max-width: 100%; height: auto; }
+        .druck-content a { color: var(--primary); text-decoration: underline; }
+
+        /* ── Fußzeile ── */
+        .druck-footer {
+            margin-top: 2rem; padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-size: .78rem; color: var(--text-muted);
+            display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+        }
+        .druck-footer-left { flex: 1; }
+        .druck-watermark {
+            position: absolute; bottom: 8mm; right: 18mm;
+            font-size: .7rem; color: var(--text-muted);
+            letter-spacing: .05em; opacity: .6;
+        }
+
+        /* ── Druckmodus ── */
+        @@page {
+            size: A4;
+            margin: 16mm 16mm 18mm 16mm;
+        }
+        @@media print {
+            body { background: #fff; }
+            .druck-toolbar { display: none !important; }
+            .druck-paper {
+                box-shadow: none; margin: 0; padding: 0;
+                max-width: none; min-height: 0;
+            }
+            .druck-content { page-break-inside: auto; }
+            .druck-content h1, .druck-content h2, .druck-content h3 { page-break-after: avoid; }
+            .druck-content table, .druck-content blockquote, .druck-content figure {
+                page-break-inside: avoid;
+            }
+            .druck-watermark { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="druck-toolbar">
+        <a href="@Url.Action("Details", new { id = Model.Id })" title="Zurück zum Dokument">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <span class="toolbar-info">
+            <i class="bi bi-eye me-1"></i>Druckvorschau · @Model.Titel
+        </span>
+        <button type="button" class="btn-print" onclick="window.print()" title="Drucken (Strg/Cmd+P)">
+            <i class="bi bi-printer-fill"></i> Drucken
+        </button>
+    </div>
+
+    <article class="druck-paper">
+        <header class="druck-head">
+            <div class="druck-head-left">
+                <div class="druck-pfad">@Model.KapitelPfad</div>
+                <h1 class="druck-titel">@Model.Titel</h1>
+                @if (!string.IsNullOrWhiteSpace(Model.Kurzbeschreibung))
+                {
+                    <p class="druck-kurz">@Model.Kurzbeschreibung</p>
+                }
+                <div class="druck-meta-row">
+                    <span><strong>Status:</strong> @Model.Status</span>
+                    <span><strong>Version:</strong> @Model.AktuelleVersion</span>
+                    @if (!string.IsNullOrWhiteSpace(Model.Kategorie))
+                    {
+                        <span><strong>Kategorie:</strong> @Model.Kategorie</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.VerantwortlicherBereich))
+                    {
+                        <span><strong>Verantwortlich:</strong> @Model.VerantwortlicherBereich</span>
+                    }
+                    <span><strong>Stand:</strong> @Model.GeaendertAm.ToLocalTime().ToString("dd.MM.yyyy")</span>
+                </div>
+            </div>
+            <img src="/images/merkur-logo.svg" alt="Merkur Privatbank" class="druck-logo" />
+        </header>
+
+        <div class="druck-content">
+            @if (string.IsNullOrWhiteSpace(Model.InhaltHtml))
+            {
+                <p style="color:var(--text-muted); font-style:italic;">Kein Inhalt erfasst.</p>
+            }
+            else
+            {
+                @Html.Raw(Model.InhaltHtml)
+            }
+        </div>
+
+        <footer class="druck-footer">
+            <div class="druck-footer-left">
+                @if (!string.IsNullOrWhiteSpace(Model.Tags))
+                {
+                    <div><strong>Schlagworte:</strong> @Model.Tags</div>
+                }
+                @if (Model.Pruefterm.HasValue)
+                {
+                    <div><strong>Nächster Prüftermin:</strong> @Model.Pruefterm.Value.ToLocalTime().ToString("dd.MM.yyyy")</div>
+                }
+            </div>
+            <div style="text-align:right;">
+                Erstellt am @Model.ErstelltAm.ToLocalTime().ToString("dd.MM.yyyy")
+                @if (!string.IsNullOrWhiteSpace(Model.ErstelltVon)) { <span>von @Model.ErstelltVon</span> }
+                <br />
+                Druckdatum: @jetzt.ToString("dd.MM.yyyy HH:mm")
+            </div>
+        </footer>
+
+        <div class="druck-watermark">Merkur Privatbank · Organisationshandbuch</div>
+    </article>
+
+    <script>
+        // Auto-Fokus auf Drucken-Button für schnelles Strg+P
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+                // Native Druckdialog läuft ohnehin
+            }
+            if (e.key === 'Escape') {
+                window.location.href = '@Url.Action("Details", new { id = Model.Id })';
+            }
+        });
+    </script>
+</body>
+</html>

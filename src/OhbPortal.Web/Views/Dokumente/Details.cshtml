@@ -29,6 +29,13 @@
         </h1>
     </div>
     <div class="d-flex gap-2 flex-wrap">
+        @if (!Model.Druckverbot && !Model.Geloescht)
+        {
+            <a asp-action="Drucken" asp-route-id="@Model.Id" target="_blank" rel="noopener"
+               class="btn-mc-ghost" title="Druckvorschau (öffnet in neuem Tab)">
+                <i class="bi bi-printer me-1"></i>Drucken
+            </a>
+        }
         @if (istEditor && !Model.Geloescht && !Model.Archiviert)
         {
             <a asp-action="Bearbeiten" asp-route-id="@Model.Id" class="btn-mc-primary">
