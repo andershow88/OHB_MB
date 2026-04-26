@@ -215,6 +215,75 @@ public class DokumenteController : BaseController
         return RedirectToAction(nameof(Details), new { id = dokumentId });
     }
 
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> SchnellAnlegen(string titel, int kapitelId, string? kurzbeschreibung, string? kategorie)
+    {
+        if (!IstEditor) return Forbid();
+        if (string.IsNullOrWhiteSpace(titel))
+            return BadRequest("Titel ist erforderlich.");
+        if (kapitelId <= 0)
+            return BadRequest("Kapitel ist erforderlich.");
+
+        var id = await _svc.ErstellenAsync(new DokumentErstellenDto(
+            titel.Trim(),
+            string.IsNullOrWhiteSpace(kurzbeschreibung) ? null : kurzbeschreibung.Trim(),
+            kapitelId, null,
+            string.IsNullOrWhiteSpace(kategorie) ? null : kategorie.Trim(),
+            null, null, null, null,
+            null, FreigabeModus.Keine,
+            true, false,
+            new List<int>()), AktuellerBenutzerId);
+        return Json(new { id, redirect = Url.Action(nameof(Bearbeiten), new { id }) });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Autosave(int? id, DokumentBearbeitenViewModel vm)
+    {
+        if (!IstEditor) return Forbid();
+        if (string.IsNullOrWhiteSpace(vm.Titel)) return BadRequest("Titel fehlt.");
+        if (vm.KapitelId <= 0) return BadRequest("Kapitel fehlt.");
+
+        if (id is null or 0)
+        {
+            var newId = await _svc.ErstellenAsync(new DokumentErstellenDto(
+                vm.Titel, vm.Kurzbeschreibung, vm.KapitelId, vm.VerantwortlicherBereichId,
+                vm.Kategorie, vm.Tags, vm.SichtbarAb, vm.SichtbarBis, vm.Pruefterm,
+                vm.InhaltHtml, vm.FreigabeModus,
+                vm.OeffentlichLesbar, vm.Druckverbot,
+                vm.VerlinkteDokumentIds), AktuellerBenutzerId);
+            return Json(new { id = newId, savedAt = DateTime.UtcNow, isNew = true });
+        }
+        else
+        {
+            await _svc.AutosaveAsync(id.Value, new DokumentBearbeitenDto(
+                vm.Titel, vm.Kurzbeschreibung, vm.KapitelId, vm.VerantwortlicherBereichId,
+                vm.Kategorie, vm.Tags, vm.SichtbarAb, vm.SichtbarBis, vm.Pruefterm,
+                vm.InhaltHtml, vm.FreigabeModus, vm.FreigabeReihenfolge,
+                vm.Druckverbot, vm.OeffentlichLesbar, vm.VerlinkteDokumentIds),
+                AktuellerBenutzerId);
+            return Json(new { id = id.Value, savedAt = DateTime.UtcNow, isNew = false });
+        }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> TagsVorschlaege(string? q)
+    {
+        var term = (q ?? string.Empty).Trim().ToLowerInvariant();
+        var alle = await _db.Dokumente
+            .Where(d => !d.Geloescht && d.Tags != null && d.Tags != "")
+            .Select(d => d.Tags!)
+            .ToListAsync();
+        var unique = alle
+            .SelectMany(t => t.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            .Select(t => t.ToLowerInvariant())
+            .Where(t => t.Length > 0 && (term.Length == 0 || t.Contains(term)))
+            .Distinct()
+            .OrderBy(t => t)
+            .Take(15)
+            .ToList();
+        return Json(unique);
+    }
+
     [HttpGet]
     public async Task<IActionResult> Vorschlaege(string q, int? excludeId)
     {

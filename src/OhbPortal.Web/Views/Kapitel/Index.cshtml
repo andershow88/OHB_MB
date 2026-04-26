@@ -90,6 +90,58 @@
 
 @if (istEditor)
 {
+    <!-- Schnell-Anlegen-Modal Dokument -->
+    <div class="modal fade" id="dokumentSchnellModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-file-earmark-plus me-2"></i>Dokument anlegen</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="dokumentSchnellKapitelInfo" class="mb-3" style="padding:.5rem .75rem; background:rgba(0,81,90,.05); border-radius:var(--mc-radius-sm); font-size:.85rem;">
+                        <i class="bi bi-arrow-return-right" style="color:var(--mc-primary);"></i>
+                        Im Kapitel: <strong id="dokumentSchnellKapitelName"></strong>
+                    </div>
+                    <input type="hidden" id="dokumentSchnellKapitelId" />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Titel</label>
+                        <input type="text" id="dokumentSchnellTitel" class="form-control" required autocomplete="off" placeholder="Aussagekräftiger Titel" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Kategorie (optional)</label>
+                        <input type="text" id="dokumentSchnellKategorie" class="form-control" list="dokumentSchnellKategorieListe" placeholder="z.B. Richtlinie, Verfahrensanweisung" />
+                        <datalist id="dokumentSchnellKategorieListe">
+                            <option>Richtlinie</option>
+                            <option>Verfahrensanweisung</option>
+                            <option>Geschäftsanweisung</option>
+                            <option>Leitlinie</option>
+                            <option>Strategie</option>
+                            <option>Handbuch</option>
+                            <option>Formular</option>
+                            <option>Verzeichnis</option>
+                            <option>Anlage</option>
+                        </datalist>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold">Kurzbeschreibung (optional)</label>
+                        <input type="text" id="dokumentSchnellKurz" class="form-control" placeholder="Einzeiler – erscheint in Listen" />
+                    </div>
+                    <div class="small text-muted mt-2">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Nach dem Anlegen wirst du direkt zum Editor weitergeleitet.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-mc-ghost" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" id="dokumentSchnellSubmit" class="btn-mc-primary">
+                        <i class="bi bi-arrow-right-circle me-1"></i>Anlegen & Bearbeiten
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="kapitelModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -175,6 +227,67 @@
             info.style.display = 'none';
         }
     }
+
+    // ── Schnell-Anlegen Dokument ──
+    function dokumentSchnellOeffnen(kapitelId, kapitelName) {
+        document.getElementById('dokumentSchnellKapitelId').value = kapitelId;
+        document.getElementById('dokumentSchnellKapitelName').textContent = kapitelName || ('#' + kapitelId);
+        document.getElementById('dokumentSchnellTitel').value = '';
+        document.getElementById('dokumentSchnellKategorie').value = '';
+        document.getElementById('dokumentSchnellKurz').value = '';
+        setTimeout(function () {
+            document.getElementById('dokumentSchnellTitel').focus();
+        }, 200);
+    }
+
+    (function () {
+        var btn = document.getElementById('dokumentSchnellSubmit');
+        if (!btn) return;
+        async function submit() {
+            var titel = document.getElementById('dokumentSchnellTitel').value.trim();
+            var kapitelId = document.getElementById('dokumentSchnellKapitelId').value;
+            var kategorie = document.getElementById('dokumentSchnellKategorie').value.trim();
+            var kurz = document.getElementById('dokumentSchnellKurz').value.trim();
+            if (!titel) {
+                if (window.mcToast) mcToast('Bitte einen Titel eingeben.', 'danger');
+                document.getElementById('dokumentSchnellTitel').focus();
+                return;
+            }
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Lege an …';
+            try {
+                var fd = new FormData();
+                fd.append('titel', titel);
+                fd.append('kapitelId', kapitelId);
+                if (kategorie) fd.append('kategorie', kategorie);
+                if (kurz) fd.append('kurzbeschreibung', kurz);
+                var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                if (token) fd.append('__RequestVerificationToken', token);
+                var resp = await fetch('/Dokumente/SchnellAnlegen', { method: 'POST', body: fd, credentials: 'same-origin' });
+                if (!resp.ok) {
+                    var msg = await resp.text();
+                    throw new Error(msg || resp.statusText);
+                }
+                var data = await resp.json();
+                if (data && data.redirect) {
+                    window.location.href = data.redirect;
+                } else if (data && data.id) {
+                    window.location.href = '/Dokumente/Bearbeiten/' + data.id;
+                }
+            } catch (ex) {
+                if (window.mcToast) mcToast('Anlegen fehlgeschlagen: ' + (ex.message || ex), 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-right-circle me-1"></i>Anlegen & Bearbeiten';
+            }
+        }
+        btn.addEventListener('click', submit);
+        document.getElementById('dokumentSchnellTitel').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); submit(); }
+        });
+        document.getElementById('dokumentSchnellKategorie').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); submit(); }
+        });
+    })();
 
     function kapitelVorbereiten(id, titel, icon, beschreibung) {
         document.getElementById('kb_id').value = id;

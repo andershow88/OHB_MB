@@ -3,12 +3,105 @@
 
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
 <style>
+    /* ── Editor-Shell ─────────────────────────────────────────────── */
+    .mc-edit-shell { display: flex; flex-direction: column; min-height: calc(100vh - 160px); }
+
+    /* Sticky Header */
+    .mc-edit-header {
+        position: sticky; top: 0; z-index: 30;
+        background: var(--mc-bg-card);
+        border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius);
+        box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        margin-bottom: 1rem;
+    }
+    .mc-edit-header-top {
+        display: flex; gap: 1rem; align-items: flex-start;
+        padding: 1rem 1.25rem .85rem 1.25rem;
+        border-bottom: 1px solid var(--mc-border);
+    }
+    .mc-edit-titelblock { flex: 1; min-width: 0; }
+    .mc-edit-titel {
+        width: 100%; border: none; outline: none; background: transparent;
+        font-size: 1.55rem; font-weight: 600; line-height: 1.25;
+        color: var(--mc-text); padding: 0; margin: 0 0 .2rem 0;
+    }
+    .mc-edit-titel::placeholder { color: var(--mc-text-muted); font-weight: 500; }
+    .mc-edit-titel:focus { outline: none; }
+    .mc-edit-kurz {
+        width: 100%; border: none; outline: none; background: transparent;
+        font-size: .92rem; line-height: 1.4; color: var(--mc-text-muted);
+        padding: 0; margin: 0;
+    }
+    .mc-edit-kurz::placeholder { color: var(--mc-text-muted); opacity: .7; }
+    .mc-edit-actions { display: flex; gap: .5rem; align-items: center; flex-shrink: 0; }
+    .autosave-status {
+        font-size: .78rem; color: var(--mc-text-muted);
+        display: inline-flex; align-items: center; gap: .35rem;
+        min-width: 130px; justify-content: flex-end;
+    }
+    .autosave-status .bi { font-size: .9rem; }
+    .autosave-status.is-saving { color: var(--mc-primary); }
+    .autosave-status.is-saved { color: var(--mc-success, #2c8a4f); }
+    .autosave-status.is-dirty { color: var(--mc-text-muted); }
+    .autosave-status.is-error { color: var(--mc-danger, #c44); }
+
+    /* Tab-Bar */
+    .mc-edit-tabs {
+        display: flex; gap: .15rem; padding: .35rem .75rem 0 .75rem;
+        margin: 0; list-style: none;
+        overflow-x: auto;
+    }
+    .mc-edit-tabs button {
+        background: none; border: none;
+        padding: .65rem 1rem; cursor: pointer;
+        font-size: .88rem; color: var(--mc-text-muted);
+        border-bottom: 2px solid transparent;
+        transition: color .15s, border-color .15s;
+        white-space: nowrap;
+    }
+    .mc-edit-tabs button:hover { color: var(--mc-text); }
+    .mc-edit-tabs button.active {
+        color: var(--mc-primary); border-bottom-color: var(--mc-primary);
+        font-weight: 600;
+    }
+    .mc-edit-tabs button .badge-tab {
+        display: inline-block; min-width: 1.4em; height: 1.4em; line-height: 1.4em;
+        text-align: center; border-radius: 999px; font-size: .7rem;
+        background: var(--mc-bg); color: var(--mc-text-muted); margin-left: .35rem;
+    }
+    .mc-edit-tabs button.active .badge-tab { background: var(--mc-primary); color: #fff; }
+
+    /* Body */
+    .mc-edit-body { flex: 1; }
+    .mc-edit-tab-pane { display: none; animation: fadeIn .2s; }
+    .mc-edit-tab-pane.active { display: block; }
+    @@keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+
+    .mc-edit-validation:empty { display: none; }
+    .mc-edit-validation { margin-bottom: 1rem; }
+    .mc-edit-validation ul { margin: 0; padding-left: 1.2rem; }
+
+    /* Inhalt-Tab: großer Editor */
     .ql-toolbar.ql-snow, .ql-container.ql-snow { border-color: var(--mc-border); }
-    .ql-editor { min-height: 440px; font-size: .95rem; line-height: 1.6; color: var(--mc-text); background: var(--mc-bg-card); }
-    .ql-editor h1 { font-size: 1.45rem; margin-top: 1.4rem; }
-    .ql-editor h2 { font-size: 1.15rem; margin-top: 1.2rem; }
-    .ql-editor h3 { font-size: 1rem; margin-top: 1rem; }
-    .ql-editor h4 { font-size: .92rem; margin-top: .9rem; }
+    .ql-toolbar.ql-snow {
+        position: sticky; top: 0; z-index: 5;
+        background: var(--mc-bg-card);
+        border-top-left-radius: var(--mc-radius-sm); border-top-right-radius: var(--mc-radius-sm);
+    }
+    .ql-container.ql-snow {
+        border-bottom-left-radius: var(--mc-radius-sm); border-bottom-right-radius: var(--mc-radius-sm);
+    }
+    .ql-editor {
+        min-height: calc(100vh - 360px);
+        font-size: 1rem; line-height: 1.65;
+        color: var(--mc-text); background: var(--mc-bg-card);
+        padding: 1.25rem 1.5rem;
+    }
+    .ql-editor h1 { font-size: 1.55rem; margin-top: 1.5rem; }
+    .ql-editor h2 { font-size: 1.25rem; margin-top: 1.4rem; }
+    .ql-editor h3 { font-size: 1.05rem; margin-top: 1.15rem; }
+    .ql-editor h4 { font-size: .95rem; margin-top: 1rem; }
     .ql-editor img { max-width: 100%; height: auto; border-radius: 6px; margin: .5rem 0; }
     .ql-editor blockquote { border-left: 3px solid var(--mc-gold); background: var(--mc-bg); padding: .6rem .95rem; border-radius: 6px; }
     .ql-editor code { background: rgba(0,0,0,.06); padding: .1em .35em; border-radius: 4px; font-size: .88em; }
@@ -20,179 +113,366 @@
     [data-theme="dark"] .ql-picker-options { background: var(--mc-bg-card); border-color: var(--mc-border); }
     [data-theme="dark"] .ql-tooltip { background: var(--mc-bg-card) !important; color: var(--mc-text) !important; border-color: var(--mc-border) !important; }
     [data-theme="dark"] .ql-tooltip input { background: var(--mc-bg); color: var(--mc-text); border-color: var(--mc-border); }
+
+    /* Stats unter Editor */
+    .mc-edit-stats {
+        font-size: .78rem; color: var(--mc-text-muted);
+        margin-top: .5rem; padding: 0 .25rem;
+        display: flex; gap: 1.25rem; align-items: center;
+    }
+    .mc-edit-stats .bi { font-size: .85rem; margin-right: .2rem; }
+
+    /* Karten in Metadaten/Termine/Freigabe etc. */
+    .mc-edit-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+    .mc-edit-card {
+        background: var(--mc-bg-card);
+        border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius);
+        padding: 1.1rem 1.25rem;
+    }
+    .mc-edit-card h3 {
+        font-size: .85rem; text-transform: uppercase; letter-spacing: .04em;
+        color: var(--mc-text-muted); margin: 0 0 .85rem 0;
+        display: flex; align-items: center; gap: .4rem;
+    }
+    .mc-edit-card h3 .bi { color: var(--mc-primary); }
+    .mc-edit-card .form-label { font-weight: 500; font-size: .85rem; margin-bottom: .25rem; }
+    .mc-edit-card .form-text { font-size: .76rem; color: var(--mc-text-muted); margin-top: .25rem; }
+
+    /* Tag-Chips */
+    .mc-tag-input-wrap { position: relative; }
+    .mc-tag-chips {
+        display: flex; flex-wrap: wrap; gap: .35rem;
+        padding: .45rem .55rem; min-height: 42px;
+        background: var(--mc-bg); border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius-sm);
+        align-items: center;
+    }
+    .mc-tag-chips:focus-within { border-color: var(--mc-primary); box-shadow: 0 0 0 .2rem rgba(0,81,90,.15); }
+    .mc-tag-chip {
+        display: inline-flex; align-items: center; gap: .35rem;
+        background: rgba(0,81,90,.08); color: var(--mc-primary);
+        font-size: .8rem; padding: .15rem .55rem;
+        border-radius: 999px; line-height: 1.4;
+    }
+    .mc-tag-chip button {
+        background: none; border: none; color: var(--mc-primary); padding: 0;
+        font-size: .9rem; line-height: 1; cursor: pointer; opacity: .65;
+    }
+    .mc-tag-chip button:hover { opacity: 1; }
+    .mc-tag-input-field {
+        flex: 1; min-width: 120px; border: none; outline: none; background: transparent;
+        font-size: .88rem; padding: .2rem 0; color: var(--mc-text);
+    }
+    .mc-tag-dropdown {
+        position: absolute; top: calc(100% + 2px); left: 0; right: 0;
+        background: var(--mc-bg-card); border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius-sm); box-shadow: var(--mc-shadow);
+        max-height: 240px; overflow-y: auto; z-index: 40;
+        display: none;
+    }
+    .mc-tag-dropdown-item {
+        padding: .5rem .75rem; cursor: pointer; font-size: .85rem;
+        border-bottom: 1px solid var(--mc-border);
+    }
+    .mc-tag-dropdown-item:last-child { border-bottom: none; }
+    .mc-tag-dropdown-item:hover { background: var(--mc-bg); }
+    .mc-tag-dropdown-empty { padding: .6rem .75rem; font-size: .8rem; color: var(--mc-text-muted); }
+
+    /* Quick-Date-Buttons */
+    .mc-date-quick { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .35rem; }
+    .mc-date-quick button {
+        background: var(--mc-bg); border: 1px solid var(--mc-border);
+        border-radius: var(--mc-radius-sm); padding: .15rem .55rem;
+        font-size: .75rem; color: var(--mc-text); cursor: pointer;
+    }
+    .mc-date-quick button:hover { background: rgba(0,81,90,.05); border-color: var(--mc-primary); }
 </style>
 
-<div class="row g-4">
-    <div class="col-lg-8">
-        <div class="mc-card">
-            <div class="mc-card-body">
-                <div asp-validation-summary="All" class="text-danger small mb-3"></div>
+<div class="mc-edit-shell" data-dokument-id="@(Model.Id?.ToString() ?? "")">
 
-                <div class="mb-3">
-                    <label asp-for="Titel" class="form-label fw-semibold"></label>
-                    <input asp-for="Titel" class="form-control" placeholder="Aussagekräftiger Titel" />
-                    <span asp-validation-for="Titel" class="text-danger small"></span>
-                </div>
-                <div class="mb-3">
-                    <label asp-for="Kurzbeschreibung" class="form-label fw-semibold"></label>
-                    <input asp-for="Kurzbeschreibung" class="form-control" placeholder="Einzeiler – erscheint in Listen" />
-                </div>
-                <div class="mb-3">
-                    <label asp-for="InhaltHtml" class="form-label fw-semibold"></label>
-                    <input type="hidden" asp-for="InhaltHtml" id="InhaltHtmlHidden" />
-                    <div id="ohb-editor"></div>
-                    <div class="small text-muted mt-1">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Überschriften für Struktur nutzen · Bilder per <i class="bi bi-image"></i> einfügen (bis 10 MB) · Ctrl/Cmd+B für Fett · Ctrl/Cmd+I für Kursiv
-                    </div>
-                </div>
+    <!-- ════════ Sticky Header ════════ -->
+    <div class="mc-edit-header">
+        <div class="mc-edit-header-top">
+            <div class="mc-edit-titelblock">
+                <input asp-for="Titel" class="mc-edit-titel" placeholder="Titel des Dokuments …" autocomplete="off" />
+                <input asp-for="Kurzbeschreibung" class="mc-edit-kurz" placeholder="Kurzbeschreibung (erscheint in Listen) …" autocomplete="off" />
+            </div>
+            <div class="mc-edit-actions">
+                <span id="autosave-status" class="autosave-status is-dirty">
+                    <i class="bi bi-circle"></i><span>Bereit</span>
+                </span>
+                <button type="submit" class="btn-mc-primary" title="Speichern (⌘/Ctrl+S)">
+                    <i class="bi bi-check2 me-1"></i>Speichern
+                </button>
+                <a asp-action="Index" class="btn-mc-ghost">Abbrechen</a>
             </div>
         </div>
+        <ul class="mc-edit-tabs" role="tablist">
+            <li><button type="button" data-tab="inhalt" class="active"><i class="bi bi-file-earmark-text me-1"></i>Inhalt</button></li>
+            <li><button type="button" data-tab="metadaten"><i class="bi bi-tags me-1"></i>Metadaten</button></li>
+            <li><button type="button" data-tab="termine"><i class="bi bi-calendar-check me-1"></i>Termine</button></li>
+            <li><button type="button" data-tab="freigabe"><i class="bi bi-check2-square me-1"></i>Freigabe</button></li>
+            <li><button type="button" data-tab="sicherheit"><i class="bi bi-shield-lock me-1"></i>Sicherheit</button></li>
+            <li><button type="button" data-tab="verlinkungen"><i class="bi bi-link-45deg me-1"></i>Verlinkungen<span class="badge-tab" id="verlinkungen-count">0</span></button></li>
+        </ul>
     </div>
 
-    <div class="col-lg-4">
-        <div class="mc-card">
-            <div class="mc-card-header">
-                <h2 class="mc-card-title"><i class="bi bi-info-circle"></i> Zuordnung</h2>
-            </div>
-            <div class="mc-card-body">
-                <div class="mb-3">
-                    <label asp-for="KapitelId" class="form-label fw-semibold"></label>
-                    <select asp-for="KapitelId" asp-items="(Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Kapitel" class="form-select">
-                        <option value="">– Bitte wählen –</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label asp-for="VerantwortlicherBereichId" class="form-label fw-semibold"></label>
-                    <select asp-for="VerantwortlicherBereichId" asp-items="(Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Teams" class="form-select">
-                        <option value="">– optional –</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label asp-for="Kategorie" class="form-label fw-semibold"></label>
-                    <input asp-for="Kategorie" class="form-control" placeholder="z.B. Richtlinie, Anweisung, Formular" />
-                </div>
-                <div class="mb-3">
-                    <label asp-for="Tags" class="form-label fw-semibold"></label>
-                    <input asp-for="Tags" class="form-control" placeholder="fernwartung, it, sicherheit" />
-                </div>
-            </div>
-        </div>
+    <!-- ════════ Tab-Inhalte ════════ -->
+    <div class="mc-edit-body">
+        <div asp-validation-summary="All" class="mc-edit-validation text-danger small"></div>
 
-        <div class="mc-card mt-3">
-            <div class="mc-card-header">
-                <h2 class="mc-card-title"><i class="bi bi-calendar-check"></i> Termine</h2>
-            </div>
-            <div class="mc-card-body">
-                <div class="row g-2">
-                    <div class="col-6">
-                        <label asp-for="SichtbarAb" class="form-label fw-semibold small"></label>
-                        <input asp-for="SichtbarAb" class="form-control form-control-sm" />
-                    </div>
-                    <div class="col-6">
-                        <label asp-for="SichtbarBis" class="form-label fw-semibold small"></label>
-                        <input asp-for="SichtbarBis" class="form-control form-control-sm" />
-                    </div>
-                    <div class="col-12 mt-2">
-                        <label asp-for="Pruefterm" class="form-label fw-semibold small"></label>
-                        <input asp-for="Pruefterm" class="form-control form-control-sm" />
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Hidden fields, bleiben immer im Form -->
+        <input type="hidden" asp-for="InhaltHtml" id="InhaltHtmlHidden" />
+        <input type="hidden" asp-for="Tags" id="Tags-hidden" />
 
-        <div class="mc-card mt-3">
-            <div class="mc-card-header">
-                <h2 class="mc-card-title"><i class="bi bi-check2-square"></i> Freigabe-Workflow</h2>
-            </div>
-            <div class="mc-card-body">
-                <div class="mb-2">
-                    <label asp-for="FreigabeModus" class="form-label fw-semibold small"></label>
-                    <select asp-for="FreigabeModus" class="form-select form-select-sm">
-                        @foreach (FreigabeModus m in Enum.GetValues<FreigabeModus>())
-                        {
-                            if (Model.FreigabeModus == m) { <option value="@((int)m)" selected>@m</option> }
-                            else { <option value="@((int)m)">@m</option> }
-                        }
-                    </select>
-                </div>
-                <div class="mb-2">
-                    <label asp-for="FreigabeReihenfolge" class="form-label fw-semibold small"></label>
-                    <select asp-for="FreigabeReihenfolge" class="form-select form-select-sm">
-                        @foreach (FreigabeReihenfolge r in Enum.GetValues<FreigabeReihenfolge>())
-                        {
-                            if (Model.FreigabeReihenfolge == r) { <option value="@((int)r)" selected>@r</option> }
-                            else { <option value="@((int)r)">@r</option> }
-                        }
-                    </select>
-                </div>
-                <div class="small text-muted">
+        <!-- Tab: Inhalt -->
+        <div class="mc-edit-tab-pane active" data-pane="inhalt">
+            <div id="ohb-editor"></div>
+            <div class="mc-edit-stats">
+                <span><i class="bi bi-textarea-t"></i><span id="stats-words">0</span> Wörter</span>
+                <span><i class="bi bi-clock"></i>~<span id="stats-readtime">0</span> Min Lesezeit</span>
+                <span class="ms-auto small text-muted">
                     <i class="bi bi-info-circle me-1"></i>
-                    Gruppen und Mitglieder werden nach dem Speichern im Dokument-Details unter „Freigabe-Konfiguration" gepflegt.
+                    Bilder per Toolbar (max. 10 MB) · ⌘/Ctrl+B/I für Fett/Kursiv · ⌘/Ctrl+S zum Speichern
+                </span>
+            </div>
+        </div>
+
+        <!-- Tab: Metadaten -->
+        <div class="mc-edit-tab-pane" data-pane="metadaten">
+            <div class="mc-edit-cards">
+                <div class="mc-edit-card">
+                    <h3><i class="bi bi-diagram-3"></i>Zuordnung</h3>
+                    <div class="mb-3">
+                        <label asp-for="KapitelId" class="form-label"></label>
+                        <select asp-for="KapitelId" asp-items="(Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Kapitel" class="form-select">
+                            <option value="">– Bitte wählen –</option>
+                        </select>
+                        <span asp-validation-for="KapitelId" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="VerantwortlicherBereichId" class="form-label"></label>
+                        <select asp-for="VerantwortlicherBereichId" asp-items="(Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Teams" class="form-select">
+                            <option value="">– optional –</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mc-edit-card">
+                    <h3><i class="bi bi-bookmark-star"></i>Klassifikation</h3>
+                    <div class="mb-3">
+                        <label asp-for="Kategorie" class="form-label"></label>
+                        <input asp-for="Kategorie" class="form-control" placeholder="z.B. Richtlinie, Verfahrensanweisung, Formular" list="kategorie-liste" />
+                        <datalist id="kategorie-liste">
+                            <option>Richtlinie</option>
+                            <option>Verfahrensanweisung</option>
+                            <option>Geschäftsanweisung</option>
+                            <option>Leitlinie</option>
+                            <option>Strategie</option>
+                            <option>Handbuch</option>
+                            <option>Formular</option>
+                            <option>Verzeichnis</option>
+                            <option>Anlage</option>
+                            <option>Policy</option>
+                        </datalist>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Schlagworte</label>
+                        <div class="mc-tag-input-wrap">
+                            <div id="tag-chips" class="mc-tag-chips">
+                                <input type="text" id="tag-input" class="mc-tag-input-field" placeholder="Tag eingeben oder Enter zum Hinzufügen …" autocomplete="off" />
+                            </div>
+                            <div id="tag-dropdown" class="mc-tag-dropdown"></div>
+                        </div>
+                        <div class="form-text">Vorschläge erscheinen automatisch · Enter oder Komma fügt Tag hinzu</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="mc-card mt-3">
-            <div class="mc-card-header">
-                <h2 class="mc-card-title"><i class="bi bi-shield-lock"></i> Sicherheit</h2>
-            </div>
-            <div class="mc-card-body">
-                <div class="form-check mb-2">
-                    <input asp-for="OeffentlichLesbar" class="form-check-input" />
-                    <label asp-for="OeffentlichLesbar" class="form-check-label small"></label>
+        <!-- Tab: Termine -->
+        <div class="mc-edit-tab-pane" data-pane="termine">
+            <div class="mc-edit-cards">
+                <div class="mc-edit-card">
+                    <h3><i class="bi bi-eye"></i>Sichtbarkeit</h3>
+                    <div class="mb-3">
+                        <label asp-for="SichtbarAb" class="form-label"></label>
+                        <input asp-for="SichtbarAb" class="form-control" />
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="SichtbarBis" class="form-label"></label>
+                        <input asp-for="SichtbarBis" class="form-control" />
+                        <div class="form-text">Optional · ab/bis steuern, in welchem Zeitraum Leser das Dokument sehen.</div>
+                    </div>
                 </div>
-                <div class="form-check">
-                    <input asp-for="Druckverbot" class="form-check-input" />
-                    <label asp-for="Druckverbot" class="form-check-label small"></label>
+
+                <div class="mc-edit-card">
+                    <h3><i class="bi bi-clock-history"></i>Prüftermin</h3>
+                    <div class="mb-2">
+                        <label asp-for="Pruefterm" class="form-label"></label>
+                        <input asp-for="Pruefterm" class="form-control" id="Pruefterm-input" />
+                    </div>
+                    <div class="mc-date-quick">
+                        <button type="button" data-quick-pruefterm="3">+ 3 Monate</button>
+                        <button type="button" data-quick-pruefterm="6">+ 6 Monate</button>
+                        <button type="button" data-quick-pruefterm="12">+ 1 Jahr</button>
+                        <button type="button" data-quick-pruefterm="24">+ 2 Jahre</button>
+                        <button type="button" data-quick-pruefterm="0">Heute</button>
+                    </div>
+                    <div class="form-text mt-2">Erinnerung im Dashboard, sobald der Termin überschritten wird.</div>
                 </div>
             </div>
         </div>
 
-        <div class="mc-card mt-3">
-            <div class="mc-card-header">
-                <h2 class="mc-card-title"><i class="bi bi-link-45deg"></i> Mitgeltende Dokumente</h2>
+        <!-- Tab: Freigabe -->
+        <div class="mc-edit-tab-pane" data-pane="freigabe">
+            <div class="mc-edit-cards">
+                <div class="mc-edit-card">
+                    <h3><i class="bi bi-check2-square"></i>Workflow</h3>
+                    <div class="mb-3">
+                        <label asp-for="FreigabeModus" class="form-label"></label>
+                        <select asp-for="FreigabeModus" class="form-select">
+                            @foreach (FreigabeModus m in Enum.GetValues<FreigabeModus>())
+                            {
+                                if (Model.FreigabeModus == m) { <option value="@((int)m)" selected>@m</option> }
+                                else { <option value="@((int)m)">@m</option> }
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="FreigabeReihenfolge" class="form-label"></label>
+                        <select asp-for="FreigabeReihenfolge" class="form-select">
+                            @foreach (FreigabeReihenfolge r in Enum.GetValues<FreigabeReihenfolge>())
+                            {
+                                if (Model.FreigabeReihenfolge == r) { <option value="@((int)r)" selected>@r</option> }
+                                else { <option value="@((int)r)">@r</option> }
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mc-edit-card">
+                    <h3><i class="bi bi-info-circle"></i>Hinweis</h3>
+                    <p class="small mb-0" style="line-height:1.5;">
+                        Freigabe-Gruppen und deren Mitglieder werden nach dem Speichern in der Detail-Ansicht
+                        unter <strong>„Freigabe-Konfiguration"</strong> gepflegt. Hier legst du nur fest, ob
+                        überhaupt eine Freigabe nötig ist und wie sie ablaufen soll.
+                    </p>
+                </div>
+
+                @if (Model.Id.HasValue)
+                {
+                    <div class="mc-edit-card">
+                        <h3><i class="bi bi-pencil-square"></i>Versions-Hinweis</h3>
+                        <label asp-for="AenderungsHinweis" class="form-label">Was wurde geändert?</label>
+                        <textarea asp-for="AenderungsHinweis" class="form-control" rows="3" placeholder="Erscheint im Audit-Log und in der Versionshistorie"></textarea>
+                        <div class="form-text">Gilt nur für die nächste manuelle Speicherung — Autosave erzeugt keine neue Version.</div>
+                    </div>
+                }
             </div>
-            <div class="mc-card-body">
+        </div>
+
+        <!-- Tab: Sicherheit -->
+        <div class="mc-edit-tab-pane" data-pane="sicherheit">
+            <div class="mc-edit-cards">
+                <div class="mc-edit-card">
+                    <h3><i class="bi bi-shield-lock"></i>Zugriff & Schutz</h3>
+                    <div class="form-check mb-3">
+                        <input asp-for="OeffentlichLesbar" class="form-check-input" id="OeffentlichLesbar-cb" />
+                        <label asp-for="OeffentlichLesbar" class="form-check-label" for="OeffentlichLesbar-cb"></label>
+                        <div class="form-text">Wenn deaktiviert: nur explizit Berechtigte sehen das Dokument.</div>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input asp-for="Druckverbot" class="form-check-input" id="Druckverbot-cb" />
+                        <label asp-for="Druckverbot" class="form-check-label" for="Druckverbot-cb"></label>
+                        <div class="form-text">Versteckt die Druck-Funktion in der Detailansicht.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Verlinkungen -->
+        <div class="mc-edit-tab-pane" data-pane="verlinkungen">
+            <div class="mc-edit-card" style="max-width: 720px;">
+                <h3><i class="bi bi-link-45deg"></i>Mitgeltende Dokumente</h3>
                 <div style="position:relative;">
-                    <input id="verlinkungSuche" type="text" class="form-control form-control-sm"
+                    <input id="verlinkungSuche" type="text" class="form-control"
                            placeholder="Dokument-Titel suchen (ab 2 Zeichen) …" autocomplete="off" />
                     <div id="verlinkungDropdown"
                          style="display:none; position:absolute; top:calc(100% + 2px); left:0; right:0; z-index:40;
                                 background:var(--mc-bg-card); border:1px solid var(--mc-border);
-                                border-radius:var(--mc-radius-sm); box-shadow:var(--mc-shadow); max-height:280px; overflow-y:auto;"></div>
+                                border-radius:var(--mc-radius-sm); box-shadow:var(--mc-shadow); max-height:300px; overflow-y:auto;"></div>
                 </div>
-                <div id="verlinkungChips" class="mt-2 d-flex flex-wrap gap-1"></div>
-                <div class="small text-muted mt-2">
-                    <i class="bi bi-info-circle me-1"></i>
-                    Ausgewählte Dokumente erscheinen als Verweise in der Detail-Ansicht.
-                </div>
+                <div id="verlinkungChips" class="mt-3 d-flex flex-wrap gap-2"></div>
+                <div class="form-text mt-2">Verknüpfte Dokumente erscheinen als Verweise in der Detail-Ansicht.</div>
             </div>
         </div>
-
-        @if (Model.Id.HasValue)
-        {
-            <div class="mc-card mt-3">
-                <div class="mc-card-body">
-                    <label asp-for="AenderungsHinweis" class="form-label fw-semibold small">Änderungshinweis (Version)</label>
-                    <textarea asp-for="AenderungsHinweis" class="form-control form-control-sm" rows="2" placeholder="Was wurde geändert?"></textarea>
-                </div>
-            </div>
-        }
     </div>
-</div>
-
-<div class="d-flex gap-2 mt-4">
-    <button type="submit" class="btn-mc-primary">
-        <i class="bi bi-check2 me-1"></i>Speichern
-    </button>
-    <a asp-action="Index" class="btn-mc-ghost">Abbrechen</a>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
 <script>
     (function () {
-        const dokumentId = @(Model.Id?.ToString() ?? "null");
+        // ─────────────────────────────────────────────────────────────
+        // State
+        // ─────────────────────────────────────────────────────────────
+        const shell = document.querySelector('.mc-edit-shell');
+        const form = shell.closest('form');
+        let currentDokumentId = shell.getAttribute('data-dokument-id') || null;
+        if (currentDokumentId === '') currentDokumentId = null;
+
+        let dirty = false;
+        let saving = false;
+        let lastSavedAt = null;
+        let suppressDirty = true; // während Init keine "dirty"-Flags setzen
+
+        const statusEl = document.getElementById('autosave-status');
+        function setStatus(state, text, iconCls) {
+            statusEl.classList.remove('is-saving', 'is-saved', 'is-dirty', 'is-error');
+            statusEl.classList.add('is-' + state);
+            statusEl.innerHTML = '<i class="bi ' + iconCls + '"></i><span>' + text + '</span>';
+        }
+        function markDirty() {
+            if (suppressDirty) return;
+            dirty = true;
+            if (!saving) setStatus('dirty', 'Ungespeicherte Änderungen', 'bi-pencil');
+        }
+        function relativeTimeFrom(date) {
+            const sec = Math.max(1, Math.floor((Date.now() - date.getTime()) / 1000));
+            if (sec < 60) return 'vor ' + sec + ' s';
+            const min = Math.floor(sec / 60);
+            if (min < 60) return 'vor ' + min + ' Min';
+            return 'vor ' + Math.floor(min / 60) + ' Std';
+        }
+        function tickStatus() {
+            if (!lastSavedAt || dirty || saving) return;
+            setStatus('saved', 'Gespeichert ' + relativeTimeFrom(lastSavedAt), 'bi-check-circle');
+        }
+        setInterval(tickStatus, 15000);
+
+        // ─────────────────────────────────────────────────────────────
+        // Tabs
+        // ─────────────────────────────────────────────────────────────
+        const tabBtns = document.querySelectorAll('.mc-edit-tabs button[data-tab]');
+        const panes = document.querySelectorAll('.mc-edit-tab-pane[data-pane]');
+        tabBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const t = btn.getAttribute('data-tab');
+                tabBtns.forEach(function (b) { b.classList.toggle('active', b === btn); });
+                panes.forEach(function (p) { p.classList.toggle('active', p.getAttribute('data-pane') === t); });
+            });
+        });
+        // Tab-Switch über Hashes (#metadaten o.ä.)
+        if (window.location.hash) {
+            const targetTab = window.location.hash.replace('#', '');
+            const targetBtn = document.querySelector('.mc-edit-tabs button[data-tab="' + targetTab + '"]');
+            if (targetBtn) targetBtn.click();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Quill Editor
+        // ─────────────────────────────────────────────────────────────
         const hidden = document.getElementById('InhaltHtmlHidden');
         const initial = hidden.value || '';
 
@@ -212,63 +492,174 @@
 
         const quill = new Quill('#ohb-editor', {
             theme: 'snow',
-            placeholder: 'Inhalt hier erfassen …',
+            placeholder: 'Inhalt hier erfassen … Tipp: Mit / einen Befehl aus der Toolbar nutzen.',
             modules: {
                 toolbar: {
                     container: toolbarOptions,
-                    handlers: {
-                        image: bildEinfuegen
-                    }
+                    handlers: { image: bildEinfuegen }
                 }
             }
         });
-
         if (initial) quill.clipboard.dangerouslyPasteHTML(initial);
+
+        // Wortzahl & Lesezeit
+        const wordsEl = document.getElementById('stats-words');
+        const readEl = document.getElementById('stats-readtime');
+        function updateStats() {
+            const text = quill.getText().trim();
+            const words = text.length === 0 ? 0 : text.split(/\s+/).length;
+            const min = Math.max(1, Math.round(words / 220));
+            wordsEl.textContent = words.toLocaleString('de-DE');
+            readEl.textContent = min;
+        }
+        updateStats();
+        quill.on('text-change', function () {
+            hidden.value = quill.root.innerHTML;
+            updateStats();
+            markDirty();
+        });
 
         function antiForgeryToken() {
             return document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
         }
-
         async function bildEinfuegen() {
             const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.click();
+            input.type = 'file'; input.accept = 'image/*'; input.click();
             input.onchange = async () => {
                 const file = input.files && input.files[0];
                 if (!file) return;
                 if (file.size > 10 * 1024 * 1024) {
-                    alert('Bild zu groß (max. 10 MB).');
+                    if (window.mcToast) mcToast('Bild zu groß (max. 10 MB).', 'danger');
                     return;
                 }
                 const fd = new FormData();
                 fd.append('datei', file);
-                if (dokumentId) fd.append('dokumentId', dokumentId);
+                if (currentDokumentId) fd.append('dokumentId', currentDokumentId);
                 fd.append('__RequestVerificationToken', antiForgeryToken());
-
                 try {
                     const resp = await fetch('/Dokumente/BildHochladen', { method: 'POST', body: fd });
                     const data = await resp.json();
-                    if (data.error) { alert(data.error); return; }
+                    if (data.error) { if (window.mcToast) mcToast(data.error, 'danger'); return; }
                     if (data.url) {
                         const range = quill.getSelection(true);
                         quill.insertEmbed(range.index, 'image', data.url, 'user');
                         quill.setSelection(range.index + 1, 0);
                     }
                 } catch (ex) {
-                    alert('Fehler beim Upload: ' + ex.message);
+                    if (window.mcToast) mcToast('Fehler beim Upload: ' + ex.message, 'danger');
                 }
             };
         }
 
-        const form = hidden.closest('form');
-        if (form) {
-            form.addEventListener('submit', () => {
-                hidden.value = quill.root.innerHTML;
-            });
-        }
+        // ─────────────────────────────────────────────────────────────
+        // Tag-Chips
+        // ─────────────────────────────────────────────────────────────
+        const tagChipsEl = document.getElementById('tag-chips');
+        const tagInputEl = document.getElementById('tag-input');
+        const tagDropdownEl = document.getElementById('tag-dropdown');
+        const tagsHidden = document.getElementById('Tags-hidden');
+        const tagSet = new Set();
+        let tagDebounce = null;
 
-        // ── Mitgeltende Dokumente: Autocomplete + Chips ─────────────────
+        (tagsHidden.value || '').split(',').map(s => s.trim()).filter(Boolean).forEach(t => tagSet.add(t.toLowerCase()));
+
+        function renderTagChips() {
+            tagChipsEl.querySelectorAll('.mc-tag-chip').forEach(c => c.remove());
+            const arr = Array.from(tagSet).sort();
+            arr.forEach(function (tag) {
+                const chip = document.createElement('span');
+                chip.className = 'mc-tag-chip';
+                chip.innerHTML = '<i class="bi bi-tag"></i><span></span><button type="button" aria-label="Entfernen"><i class="bi bi-x"></i></button>';
+                chip.querySelector('span').textContent = tag;
+                chip.querySelector('button').addEventListener('click', function () {
+                    tagSet.delete(tag);
+                    renderTagChips(); syncTagsHidden(); markDirty();
+                });
+                tagChipsEl.insertBefore(chip, tagInputEl);
+            });
+            syncTagsHidden();
+        }
+        function syncTagsHidden() {
+            tagsHidden.value = Array.from(tagSet).sort().join(',');
+        }
+        function addTag(raw) {
+            const t = (raw || '').trim().toLowerCase().replace(/^,+|,+$/g, '');
+            if (!t) return;
+            if (tagSet.has(t)) return;
+            tagSet.add(t);
+            renderTagChips(); markDirty();
+        }
+        renderTagChips();
+
+        tagInputEl.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                if (tagInputEl.value.trim()) {
+                    addTag(tagInputEl.value);
+                    tagInputEl.value = '';
+                    tagDropdownEl.style.display = 'none';
+                }
+            } else if (e.key === 'Backspace' && !tagInputEl.value) {
+                const arr = Array.from(tagSet);
+                if (arr.length > 0) {
+                    tagSet.delete(arr[arr.length - 1]);
+                    renderTagChips(); markDirty();
+                }
+            }
+        });
+        tagInputEl.addEventListener('input', function () {
+            const q = tagInputEl.value.trim();
+            clearTimeout(tagDebounce);
+            if (q.length === 0) { tagDropdownEl.style.display = 'none'; return; }
+            tagDebounce = setTimeout(async function () {
+                try {
+                    const resp = await fetch('/Dokumente/TagsVorschlaege?q=' + encodeURIComponent(q));
+                    const data = await resp.json();
+                    const filtered = (Array.isArray(data) ? data : []).filter(t => !tagSet.has(t));
+                    if (filtered.length === 0) {
+                        tagDropdownEl.innerHTML = '<div class="mc-tag-dropdown-empty">Keine Vorschläge — Enter zum Anlegen</div>';
+                        tagDropdownEl.style.display = 'block';
+                        return;
+                    }
+                    tagDropdownEl.innerHTML = filtered.map(t =>
+                        '<div class="mc-tag-dropdown-item" data-tag="' + t.replace(/"/g, '&quot;') + '"><i class="bi bi-tag me-1"></i>' + t.replace(/</g, '&lt;') + '</div>'
+                    ).join('');
+                    tagDropdownEl.style.display = 'block';
+                    tagDropdownEl.querySelectorAll('.mc-tag-dropdown-item').forEach(function (el) {
+                        el.addEventListener('mousedown', function (e) {
+                            e.preventDefault();
+                            addTag(el.getAttribute('data-tag'));
+                            tagInputEl.value = '';
+                            tagDropdownEl.style.display = 'none';
+                            tagInputEl.focus();
+                        });
+                    });
+                } catch (ex) { tagDropdownEl.style.display = 'none'; }
+            }, 200);
+        });
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('#tag-chips') && !e.target.closest('#tag-dropdown')) {
+                tagDropdownEl.style.display = 'none';
+            }
+        });
+
+        // ─────────────────────────────────────────────────────────────
+        // Quick-Date-Buttons (Prüftermin)
+        // ─────────────────────────────────────────────────────────────
+        const prueftermInput = document.getElementById('Pruefterm-input');
+        document.querySelectorAll('[data-quick-pruefterm]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const months = parseInt(btn.getAttribute('data-quick-pruefterm'), 10);
+                const d = new Date();
+                d.setMonth(d.getMonth() + months);
+                prueftermInput.value = d.toISOString().slice(0, 10);
+                markDirty();
+            });
+        });
+
+        // ─────────────────────────────────────────────────────────────
+        // Mitgeltende Dokumente (Verlinkungen) — bestehende Logik
+        // ─────────────────────────────────────────────────────────────
         const existing = @Html.Raw(
             System.Text.Json.JsonSerializer.Serialize(
                 (ViewBag.BestehendeVerlinkungen as System.Collections.IEnumerable)?
@@ -282,71 +673,163 @@
         const sucheInput = document.getElementById('verlinkungSuche');
         const dropdown = document.getElementById('verlinkungDropdown');
         const chipsContainer = document.getElementById('verlinkungChips');
+        const verlinkungenCount = document.getElementById('verlinkungen-count');
 
-        function renderChips() {
+        function renderVerlinkungChips() {
             chipsContainer.innerHTML = '';
             verlinkungen.forEach((titel, id) => {
                 const chip = document.createElement('span');
-                chip.className = 'mc-badge badge-primary d-inline-flex align-items-center';
-                chip.style.cssText = 'gap:.4rem; font-size:.72rem;';
-                chip.innerHTML = `
-                    <input type="hidden" name="VerlinkteDokumentIds" value="${id}" />
-                    <i class="bi bi-link-45deg"></i>
-                    <span>${titel.replace(/</g,'&lt;')}</span>
-                    <button type="button" class="btn-link p-0 border-0"
-                            style="background:none; color:inherit; line-height:1;"
-                            onclick="window.verlinkungEntfernen(${id})">
-                        <i class="bi bi-x-circle"></i>
-                    </button>`;
+                chip.className = 'mc-tag-chip';
+                chip.style.background = 'rgba(52,127,170,.12)';
+                chip.style.color = 'var(--mc-primary)';
+                chip.innerHTML =
+                    '<input type="hidden" name="VerlinkteDokumentIds" value="' + id + '" />' +
+                    '<i class="bi bi-link-45deg"></i><span></span>' +
+                    '<button type="button" aria-label="Entfernen"><i class="bi bi-x"></i></button>';
+                chip.querySelector('span').textContent = titel;
+                chip.querySelector('button').addEventListener('click', function () {
+                    verlinkungen.delete(id);
+                    renderVerlinkungChips(); markDirty();
+                });
                 chipsContainer.appendChild(chip);
             });
+            verlinkungenCount.textContent = verlinkungen.size;
         }
-        window.verlinkungEntfernen = function(id) {
-            verlinkungen.delete(id);
-            renderChips();
-        };
-        renderChips();
+        renderVerlinkungChips();
 
-        let debounceTimer = null;
+        let vDebounce = null;
         sucheInput.addEventListener('input', () => {
             const q = sucheInput.value.trim();
-            clearTimeout(debounceTimer);
+            clearTimeout(vDebounce);
             if (q.length < 2) { dropdown.style.display = 'none'; return; }
-            debounceTimer = setTimeout(async () => {
-                const excl = dokumentId != null ? `&excludeId=${dokumentId}` : '';
-                const resp = await fetch(`/Dokumente/Vorschlaege?q=${encodeURIComponent(q)}${excl}`);
-                const data = await resp.json();
-                if (!Array.isArray(data) || data.length === 0) {
-                    dropdown.style.display = 'none';
-                    return;
-                }
-                dropdown.innerHTML = data
-                    .filter(d => !verlinkungen.has(d.id))
-                    .map(d => `
-                        <div class="verlinkung-vorschlag"
-                             data-id="${d.id}" data-titel="${d.titel.replace(/"/g,'&quot;')}"
-                             style="padding:.5rem .75rem; cursor:pointer; border-bottom:1px solid var(--mc-border);">
-                            <div class="fw-semibold" style="font-size:.85rem;">${d.titel.replace(/</g,'&lt;')}</div>
-                            <div class="small text-muted">${(d.kapitel || '').replace(/</g,'&lt;')}</div>
-                        </div>`).join('') || '<div class="small text-muted" style="padding:.6rem .75rem;">Alle Treffer sind bereits verlinkt.</div>';
-                dropdown.style.display = 'block';
-                dropdown.querySelectorAll('.verlinkung-vorschlag').forEach(el => {
-                    el.addEventListener('click', () => {
-                        const id = parseInt(el.getAttribute('data-id'));
-                        const titel = el.getAttribute('data-titel');
-                        verlinkungen.set(id, titel);
-                        sucheInput.value = '';
-                        dropdown.style.display = 'none';
-                        renderChips();
+            vDebounce = setTimeout(async () => {
+                const excl = currentDokumentId ? '&excludeId=' + currentDokumentId : '';
+                try {
+                    const resp = await fetch('/Dokumente/Vorschlaege?q=' + encodeURIComponent(q) + excl);
+                    const data = await resp.json();
+                    const filtered = Array.isArray(data) ? data.filter(d => !verlinkungen.has(d.id)) : [];
+                    if (filtered.length === 0) {
+                        dropdown.innerHTML = '<div class="small text-muted" style="padding:.6rem .75rem;">Keine weiteren Treffer.</div>';
+                    } else {
+                        dropdown.innerHTML = filtered.map(d =>
+                            '<div class="verlinkung-vorschlag" data-id="' + d.id + '" data-titel="' + d.titel.replace(/"/g, '&quot;') + '"' +
+                            ' style="padding:.55rem .8rem; cursor:pointer; border-bottom:1px solid var(--mc-border);">' +
+                            '<div class="fw-semibold" style="font-size:.88rem;">' + d.titel.replace(/</g, '&lt;') + '</div>' +
+                            '<div class="small text-muted">' + (d.kapitel || '').replace(/</g, '&lt;') + '</div></div>').join('');
+                    }
+                    dropdown.style.display = 'block';
+                    dropdown.querySelectorAll('.verlinkung-vorschlag').forEach(el => {
+                        el.addEventListener('click', () => {
+                            const id = parseInt(el.getAttribute('data-id'));
+                            const titel = el.getAttribute('data-titel');
+                            verlinkungen.set(id, titel);
+                            sucheInput.value = '';
+                            dropdown.style.display = 'none';
+                            renderVerlinkungChips(); markDirty();
+                        });
+                        el.addEventListener('mouseenter', () => el.style.background = 'var(--mc-bg)');
+                        el.addEventListener('mouseleave', () => el.style.background = 'transparent');
                     });
-                    el.addEventListener('mouseenter', () => el.style.background = 'var(--mc-bg)');
-                    el.addEventListener('mouseleave', () => el.style.background = 'transparent');
-                });
+                } catch (ex) { dropdown.style.display = 'none'; }
             }, 220);
         });
         document.addEventListener('click', e => {
             if (!e.target.closest('#verlinkungSuche') && !e.target.closest('#verlinkungDropdown'))
                 dropdown.style.display = 'none';
         });
+
+        // ─────────────────────────────────────────────────────────────
+        // Dirty-Tracking auf allen Form-Inputs
+        // ─────────────────────────────────────────────────────────────
+        form.querySelectorAll('input, select, textarea').forEach(function (el) {
+            const evt = (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'date') ? 'change' : 'input';
+            el.addEventListener(evt, markDirty);
+        });
+
+        // ─────────────────────────────────────────────────────────────
+        // Autosave
+        // ─────────────────────────────────────────────────────────────
+        async function autosave() {
+            if (!dirty || saving) return;
+            const titelEl = form.querySelector('input[name="Titel"]');
+            const kapitelEl = form.querySelector('select[name="KapitelId"]');
+            if (!titelEl || !titelEl.value.trim()) return; // Mindestvoraussetzung
+            if (!kapitelEl || !kapitelEl.value || kapitelEl.value === '') return;
+
+            saving = true;
+            setStatus('saving', 'Speichere …', 'bi-arrow-clockwise');
+
+            // FormData aus aktuellem Form
+            hidden.value = quill.root.innerHTML;
+            syncTagsHidden();
+            const fd = new FormData(form);
+            fd.append('id', currentDokumentId || '0');
+
+            try {
+                const url = currentDokumentId ? '/Dokumente/Autosave?id=' + currentDokumentId : '/Dokumente/Autosave';
+                const resp = await fetch(url, { method: 'POST', body: fd });
+                if (!resp.ok) {
+                    const txt = await resp.text();
+                    setStatus('error', 'Autosave fehlgeschlagen', 'bi-exclamation-triangle');
+                    saving = false;
+                    return;
+                }
+                const data = await resp.json();
+                if (data.id && (!currentDokumentId || data.isNew)) {
+                    currentDokumentId = String(data.id);
+                    shell.setAttribute('data-dokument-id', currentDokumentId);
+                    // URL ohne Reload anpassen
+                    const newPath = '/Dokumente/Bearbeiten/' + currentDokumentId;
+                    if (window.location.pathname !== newPath) {
+                        window.history.replaceState({}, '', newPath);
+                    }
+                    // Form-Action aktualisieren, damit "Speichern" auf Bearbeiten geht
+                    form.setAttribute('action', newPath);
+                }
+                lastSavedAt = new Date();
+                dirty = false;
+                setStatus('saved', 'Gespeichert vor 0 s', 'bi-check-circle');
+            } catch (ex) {
+                setStatus('error', 'Autosave fehlgeschlagen', 'bi-exclamation-triangle');
+            } finally {
+                saving = false;
+            }
+        }
+        // Alle 25 Sekunden prüfen
+        setInterval(autosave, 25000);
+
+        // ─────────────────────────────────────────────────────────────
+        // Form-Submit: Felder finalisieren, Toast vorbereiten
+        // ─────────────────────────────────────────────────────────────
+        form.addEventListener('submit', function () {
+            hidden.value = quill.root.innerHTML;
+            syncTagsHidden();
+            // Beim manuellen Speichern soll keine Unsaved-Warning kommen
+            dirty = false;
+        });
+
+        // ─────────────────────────────────────────────────────────────
+        // Strg/Cmd+S → Speichern
+        // ─────────────────────────────────────────────────────────────
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                e.preventDefault();
+                form.requestSubmit ? form.requestSubmit() : form.submit();
+            }
+        });
+
+        // ─────────────────────────────────────────────────────────────
+        // Beforeunload: Schutz vor Datenverlust
+        // ─────────────────────────────────────────────────────────────
+        window.addEventListener('beforeunload', function (e) {
+            if (dirty) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        });
+
+        // Init beendet
+        setTimeout(function () { suppressDirty = false; }, 200);
     })();
 </script>

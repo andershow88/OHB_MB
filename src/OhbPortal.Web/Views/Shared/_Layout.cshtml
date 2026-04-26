@@ -154,22 +154,10 @@
             </div>
         </header>
 
-        <div class="mc-content" style="padding-bottom:0; padding-top:0.75rem; min-height:0; flex:none;">
-            @if (TempData["Erfolg"] is string er)
-            {
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="bi bi-check-circle me-1"></i> @er
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            }
-            @if (TempData["Fehler"] is string fe)
-            {
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="bi bi-exclamation-triangle me-1"></i> @fe
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            }
-        </div>
+        @{
+            var toastErfolg = TempData["Erfolg"] as string;
+            var toastFehler = TempData["Fehler"] as string;
+        }
 
         <main class="mc-content" role="main">
             @RenderBody()
@@ -181,6 +169,83 @@
     </div>
 
     <div id="sidebarOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:199;" onclick="closeSidebar()"></div>
+
+    <!-- ===== Toast-Container ===== -->
+    <div id="mc-toast-container" aria-live="polite" aria-atomic="true"
+         style="position:fixed; top:1rem; right:1rem; z-index:1080; display:flex; flex-direction:column; gap:.5rem; max-width:380px; pointer-events:none;"></div>
+    <style>
+        .mc-toast {
+            pointer-events: auto;
+            background: var(--mc-bg-card);
+            color: var(--mc-text);
+            border: 1px solid var(--mc-border);
+            border-left: 3px solid var(--mc-primary);
+            border-radius: var(--mc-radius-sm);
+            box-shadow: var(--mc-shadow-lg, 0 8px 24px rgba(0,0,0,.18));
+            padding: .65rem .9rem;
+            font-size: .88rem;
+            display: flex;
+            gap: .55rem;
+            align-items: flex-start;
+            opacity: 0;
+            transform: translateX(20px);
+            transition: opacity .25s, transform .25s;
+        }
+        .mc-toast.show { opacity: 1; transform: translateX(0); }
+        .mc-toast.is-success { border-left-color: var(--mc-success, #2c8a4f); }
+        .mc-toast.is-danger { border-left-color: var(--mc-danger, #c44); }
+        .mc-toast.is-info { border-left-color: var(--mc-primary); }
+        .mc-toast .mc-toast-icon { font-size: 1.05rem; line-height: 1; padding-top: .1rem; }
+        .mc-toast.is-success .mc-toast-icon { color: var(--mc-success, #2c8a4f); }
+        .mc-toast.is-danger .mc-toast-icon { color: var(--mc-danger, #c44); }
+        .mc-toast.is-info .mc-toast-icon { color: var(--mc-primary); }
+        .mc-toast .mc-toast-body { flex: 1; line-height: 1.35; }
+        .mc-toast .mc-toast-close {
+            background: none; border: none; color: var(--mc-text-muted);
+            cursor: pointer; padding: 0; line-height: 1; font-size: 1rem;
+        }
+        .mc-toast .mc-toast-close:hover { color: var(--mc-text); }
+    </style>
+    <script>
+        (function () {
+            var container = document.getElementById('mc-toast-container');
+            window.mcToast = function (message, type, opts) {
+                if (!container) return;
+                type = (type || 'info').toLowerCase();
+                opts = opts || {};
+                var duration = opts.duration === undefined ? 4500 : opts.duration;
+                var iconCls = type === 'success' ? 'bi-check-circle-fill'
+                            : type === 'danger' ? 'bi-exclamation-triangle-fill'
+                            : 'bi-info-circle-fill';
+
+                var t = document.createElement('div');
+                t.className = 'mc-toast is-' + type;
+                t.innerHTML =
+                    '<i class="bi ' + iconCls + ' mc-toast-icon"></i>' +
+                    '<div class="mc-toast-body"></div>' +
+                    '<button type="button" class="mc-toast-close" aria-label="Schließen"><i class="bi bi-x"></i></button>';
+                t.querySelector('.mc-toast-body').textContent = message;
+                container.appendChild(t);
+                requestAnimationFrame(function () { t.classList.add('show'); });
+
+                var hide = function () {
+                    t.classList.remove('show');
+                    setTimeout(function () { t.remove(); }, 250);
+                };
+                t.querySelector('.mc-toast-close').addEventListener('click', hide);
+                if (duration > 0) setTimeout(hide, duration);
+                return t;
+            };
+        })();
+    </script>
+    @if (!string.IsNullOrEmpty(toastErfolg))
+    {
+        <script>document.addEventListener('DOMContentLoaded', function () { window.mcToast(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(toastErfolg)), 'success'); });</script>
+    }
+    @if (!string.IsNullOrEmpty(toastFehler))
+    {
+        <script>document.addEventListener('DOMContentLoaded', function () { window.mcToast(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(toastFehler)), 'danger', { duration: 8000 }); });</script>
+    }
 
     <!-- ===== KI-Assistent Chat-Modal ===== -->
     <button id="aiFab" onclick="aiOeffnen()" title="KI-Assistent öffnen"

@@ -10,6 +10,7 @@ public interface IDokumentService
     Task<bool> DarfLesenAsync(int dokumentId, BerechtigungsKontext kontext);
     Task<int> ErstellenAsync(DokumentErstellenDto dto, int benutzerId);
     Task AktualisierenAsync(int id, DokumentBearbeitenDto dto, int benutzerId, string? aenderungshinweis = null);
+    Task AutosaveAsync(int id, DokumentBearbeitenDto dto, int benutzerId);
     Task StatusAendernAsync(int id, DokumentStatus neuerStatus, int benutzerId, string? notiz = null);
     Task ArchivierenAsync(int id, int benutzerId);
     Task WiederherstellenAsync(int id, int benutzerId);

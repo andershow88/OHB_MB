@@ -3,13 +3,6 @@
     ViewData["Title"] = "Neues Dokument";
 }
 
-<div class="mc-page-header">
-    <div>
-        <h1 class="mc-page-title"><i class="bi bi-file-earmark-plus me-2"></i>Neues Dokument</h1>
-        <p class="mc-page-subtitle">Grunddaten, Inhalt und Freigabe-Konfiguration</p>
-    </div>
-</div>
-
-<form asp-action="Neu" method="post">
+<form asp-action="Neu" method="post" id="dokument-form">
     @await Html.PartialAsync("_Form", Model)
 </form>

@@ -65,10 +65,12 @@
                     <i class="bi bi-folder-plus"></i>
                 </button>
             }
-            <a asp-controller="Dokumente" asp-action="Neu" asp-route-kapitelId="@Model.Id"
-               class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .5rem;" title="Dokument anlegen">
+            <button type="button" class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .5rem;"
+                    data-bs-toggle="modal" data-bs-target="#dokumentSchnellModal"
+                    onclick="dokumentSchnellOeffnen(@Model.Id, '@Html.Raw(titelEnc)')"
+                    title="Dokument anlegen">
                 <i class="bi bi-file-earmark-plus"></i>
-            </a>
+            </button>
             @if (istAdmin)
             {
                 <form asp-action="Loeschen" asp-route-id="@Model.Id" method="post" style="display:inline;"

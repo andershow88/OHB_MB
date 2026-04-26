@@ -230,6 +230,36 @@ public class DokumentService : IDokumentService
             beschreibung: $"Version {d.AktuelleVersion}");
     }
 
+    /// <summary>
+    /// Autosave: aktualisiert das Dokument ohne neue Version oder Audit-Eintrag.
+    /// Versionsnummer und -historie bleiben erhalten — sind reserviert für manuelle Speicherungen.
+    /// </summary>
+    public async Task AutosaveAsync(int id, DokumentBearbeitenDto dto, int benutzerId)
+    {
+        var d = await _db.Dokumente.FindAsync(id) ?? throw new KeyNotFoundException();
+
+        d.Titel = dto.Titel;
+        d.Kurzbeschreibung = dto.Kurzbeschreibung;
+        d.KapitelId = dto.KapitelId;
+        d.VerantwortlicherBereichId = dto.VerantwortlicherBereichId;
+        d.Kategorie = dto.Kategorie;
+        d.Tags = dto.Tags;
+        d.SichtbarAb = dto.SichtbarAb;
+        d.SichtbarBis = dto.SichtbarBis;
+        d.Pruefterm = dto.Pruefterm;
+        d.InhaltHtml = dto.InhaltHtml;
+        d.FreigabeModus = dto.FreigabeModus;
+        d.FreigabeReihenfolge = dto.FreigabeReihenfolge;
+        d.Druckverbot = dto.Druckverbot;
+        d.OeffentlichLesbar = dto.OeffentlichLesbar;
+        d.GeaendertAm = DateTime.UtcNow;
+        d.GeaendertVonId = benutzerId;
+        await _db.SaveChangesAsync();
+
+        if (dto.VerlinkteDokumentIds is not null)
+            await SyncVerlinkungenAsync(id, dto.VerlinkteDokumentIds);
+    }
+
     public async Task StatusAendernAsync(int id, DokumentStatus neuerStatus, int benutzerId, string? notiz = null)
     {
         var d = await _db.Dokumente.FindAsync(id) ?? throw new KeyNotFoundException();
