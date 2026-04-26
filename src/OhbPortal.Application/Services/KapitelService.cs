@@ -33,12 +33,29 @@ public class KapitelService : IKapitelService
             })
             .ToListAsync();
 
+        var dokRows = await _db.Dokumente
+            .Where(d => !d.Geloescht)
+            .OrderBy(d => d.Titel)
+            .Select(d => new { d.Id, d.Titel, d.KapitelId, d.Status, d.Archiviert })
+            .ToListAsync();
+
+        var dokumenteByKapitel = dokRows
+            .GroupBy(d => d.KapitelId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<KapitelDokumentDto>)g
+                    .Select(x => new KapitelDokumentDto(x.Id, x.Titel, x.Status, x.Archiviert))
+                    .ToList());
+
+        IReadOnlyList<KapitelDokumentDto> empty = Array.Empty<KapitelDokumentDto>();
+
         IReadOnlyList<KapitelBaumDto> Children(int? parentId, int tiefe) =>
             alle.Where(k => k.ElternKapitelId == parentId)
                 .Select(k => new KapitelBaumDto(
                     k.Id, k.Titel, k.Beschreibung, k.Icon, k.ElternKapitelId,
                     tiefe, k.Sortierung,
                     k.DokumenteAnzahl,
+                    dokumenteByKapitel.TryGetValue(k.Id, out var docs) ? docs : empty,
                     Children(k.Id, tiefe + 1)))
                 .ToList();
 

@@ -133,7 +133,10 @@ public record KapitelBaumDto(
     int Tiefe,
     int Sortierung,
     int DokumentenAnzahl,
+    IReadOnlyList<KapitelDokumentDto> Dokumente,
     IReadOnlyList<KapitelBaumDto> Unterkapitel);
+
+public record KapitelDokumentDto(int Id, string Titel, DokumentStatus Status, bool Archiviert);
 
 public record KapitelDto(int Id, string Titel, string? Beschreibung, string? Icon, int? ElternId);
 

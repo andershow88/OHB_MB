@@ -5,7 +5,7 @@
     var beschrEnc = System.Web.HttpUtility.JavaScriptStringEncode(Model.Beschreibung ?? string.Empty);
     var titelEnc = System.Web.HttpUtility.JavaScriptStringEncode(Model.Titel);
     var iconEnc = System.Web.HttpUtility.JavaScriptStringEncode(Model.Icon ?? string.Empty);
-    bool hatKinder = Model.Unterkapitel.Any();
+    bool hatKinder = Model.Unterkapitel.Any() || Model.Dokumente.Any();
     var nodeId = $"kap-{Model.Id}";
 }
 <li class="tree-node" data-kapitel-id="@Model.Id" data-eltern-id="@(Model.ElternId?.ToString() ?? "")">
@@ -87,6 +87,23 @@
             @foreach (var u in Model.Unterkapitel)
             {
                 <partial name="_KapitelNode" model="u" />
+            }
+            @foreach (var d in Model.Dokumente)
+            {
+                <li class="tree-node tree-doc-node">
+                    <div class="d-flex align-items-center gap-2 tree-row tree-doc-row"
+                         style="padding:.32rem .5rem; padding-left:@((Model.Tiefe + 1) * 28 + 4)px; border-radius:var(--mc-radius-sm); margin-bottom:1px;">
+                        <span style="width:20px; display:inline-block;"></span>
+                        <i class="bi @(d.Archiviert ? "bi-archive" : "bi-file-earmark-text")"
+                           style="color:var(--mc-text-muted); font-size:.95rem; flex-shrink:0;"></i>
+                        <a asp-controller="Dokumente" asp-action="Details" asp-route-id="@d.Id"
+                           class="tree-label tree-doc-label"
+                           style="color:var(--mc-text); text-decoration:none; font-size:.86rem; font-weight:400; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                           title="@d.Titel">
+                            @d.Titel
+                        </a>
+                    </div>
+                </li>
             }
         </ul>
     }
