@@ -23,15 +23,15 @@
 
 @if (ViewBag.SeitenTitel == null)
 {
-    <form method="get" class="mc-card mb-3" style="padding:.75rem 1rem;">
+    <form method="get" id="dok-filter-form" class="mc-card mb-3" style="padding:.75rem 1rem;">
         <div class="row g-2 align-items-end">
             <div class="col-md-4">
                 <label class="form-label small mb-1">Suche</label>
-                <input name="q" value="@filter.Suchbegriff" class="form-control form-control-sm" placeholder="Titel, Inhalt oder Schlagwort …" />
+                <input name="q" value="@filter.Suchbegriff" class="form-control form-control-sm" placeholder="Titel, Inhalt oder Schlagwort …" data-auto-submit="debounced" />
             </div>
             <div class="col-md-3">
                 <label class="form-label small mb-1">Kapitel</label>
-                <select name="kapitelId" class="form-select form-select-sm">
+                <select name="kapitelId" class="form-select form-select-sm" data-auto-submit="instant">
                     <option value="">Alle</option>
                     @foreach (var kap in (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Kapitel)
                     {
@@ -48,7 +48,7 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label small mb-1">Status</label>
-                <select name="status" class="form-select form-select-sm">
+                <select name="status" class="form-select form-select-sm" data-auto-submit="instant">
                     <option value="">Alle</option>
                     @foreach (DokumentStatus s in Enum.GetValues<DokumentStatus>())
                     {
@@ -65,15 +65,39 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label small mb-1">Kategorie</label>
-                <input name="kategorie" value="@filter.Kategorie" class="form-control form-control-sm" />
+                <input name="kategorie" value="@filter.Kategorie" class="form-control form-control-sm" data-auto-submit="debounced" />
             </div>
             <div class="col-md-1">
-                <button type="submit" class="btn-mc-primary w-100" style="font-size:.82rem; padding:.35rem .5rem;">
+                <button type="submit" class="btn-mc-primary w-100" style="font-size:.82rem; padding:.35rem .5rem;" title="Filter zurücksetzen via leerer Suche oder einfach Enter">
                     <i class="bi bi-search"></i>
                 </button>
             </div>
         </div>
     </form>
+
+    <script>
+        (function () {
+            var form = document.getElementById('dok-filter-form');
+            if (!form) return;
+            var debounceTimer;
+            form.querySelectorAll('[data-auto-submit="instant"]').forEach(function (el) {
+                el.addEventListener('change', function () { form.submit(); });
+            });
+            form.querySelectorAll('[data-auto-submit="debounced"]').forEach(function (el) {
+                el.addEventListener('input', function () {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(function () { form.submit(); }, 400);
+                });
+                el.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        clearTimeout(debounceTimer);
+                        form.submit();
+                    }
+                });
+            });
+        })();
+    </script>
 }
 
 <div class="mc-card">
