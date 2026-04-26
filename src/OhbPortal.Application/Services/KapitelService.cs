@@ -125,4 +125,95 @@ public class KapitelService : IKapitelService
         await _audit.LogAsync(AuditTyp.KapitelGeaendert, benutzerId, kapitelId: id,
             beschreibung: nachOben ? "Nach oben verschoben" : "Nach unten verschoben");
     }
+
+    public async Task VerschiebenAsync(int id, int zielId, string position, int benutzerId)
+    {
+        if (id == zielId)
+            throw new InvalidOperationException("Kapitel kann nicht auf sich selbst verschoben werden.");
+
+        var k = await _db.Kapitel.FindAsync(id) ?? throw new KeyNotFoundException();
+        var ziel = await _db.Kapitel.FindAsync(zielId) ?? throw new KeyNotFoundException();
+
+        int? neuerElternId;
+        int neuerIndex;
+        switch (position?.ToLowerInvariant())
+        {
+            case "before":
+                neuerElternId = ziel.ElternKapitelId;
+                neuerIndex = ziel.Sortierung;
+                break;
+            case "after":
+                neuerElternId = ziel.ElternKapitelId;
+                neuerIndex = ziel.Sortierung + 1;
+                break;
+            case "inside":
+                neuerElternId = ziel.Id;
+                neuerIndex = int.MaxValue;
+                break;
+            default:
+                throw new InvalidOperationException("Unbekannte Drop-Position.");
+        }
+
+        if (neuerElternId.HasValue && await IstNachfahreAsync(id, neuerElternId.Value))
+            throw new InvalidOperationException("Kapitel kann nicht in einen seiner Unterkapitel verschoben werden.");
+
+        var alterElternId = k.ElternKapitelId;
+        k.ElternKapitelId = neuerElternId;
+        k.GeaendertAm = DateTime.UtcNow;
+
+        // Zielgruppe (alle Geschwister im neuen Eltern-Kontext, ohne den Kandidaten)
+        var zielgruppe = await _db.Kapitel
+            .Where(x => x.ElternKapitelId == neuerElternId && x.Id != id)
+            .OrderBy(x => x.Sortierung).ThenBy(x => x.Titel)
+            .ToListAsync();
+
+        if (neuerIndex < 0) neuerIndex = 0;
+        if (neuerIndex > zielgruppe.Count) neuerIndex = zielgruppe.Count;
+        zielgruppe.Insert(neuerIndex, k);
+
+        for (int i = 0; i < zielgruppe.Count; i++)
+        {
+            if (zielgruppe[i].Sortierung != i)
+            {
+                zielgruppe[i].Sortierung = i;
+                zielgruppe[i].GeaendertAm = DateTime.UtcNow;
+            }
+        }
+
+        if (alterElternId != neuerElternId)
+        {
+            var alteGruppe = await _db.Kapitel
+                .Where(x => x.ElternKapitelId == alterElternId && x.Id != id)
+                .OrderBy(x => x.Sortierung).ThenBy(x => x.Titel)
+                .ToListAsync();
+            for (int i = 0; i < alteGruppe.Count; i++)
+            {
+                if (alteGruppe[i].Sortierung != i)
+                {
+                    alteGruppe[i].Sortierung = i;
+                    alteGruppe[i].GeaendertAm = DateTime.UtcNow;
+                }
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        await _audit.LogAsync(AuditTyp.KapitelGeaendert, benutzerId, kapitelId: id,
+            beschreibung: $"Per Drag-and-Drop verschoben (neuer Eltern: {neuerElternId?.ToString() ?? "Hauptebene"}, Position: {position})");
+    }
+
+    private async Task<bool> IstNachfahreAsync(int kapitelId, int kandidatId)
+    {
+        int? cursor = kandidatId;
+        var sicherung = 0;
+        while (cursor.HasValue && sicherung++ < 64)
+        {
+            if (cursor.Value == kapitelId) return true;
+            var current = await _db.Kapitel
+                .Where(x => x.Id == cursor.Value)
+                .Select(x => new { x.ElternKapitelId })
+                .FirstOrDefaultAsync();
+            cursor = current?.ElternKapitelId;
+        }
+        return false;
+    }
 }

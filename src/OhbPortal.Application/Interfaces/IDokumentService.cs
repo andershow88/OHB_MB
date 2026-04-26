@@ -31,6 +31,7 @@ public interface IKapitelService
     Task LoeschenAsync(int id, int benutzerId);
     Task NachObenVerschiebenAsync(int id, int benutzerId);
     Task NachUntenVerschiebenAsync(int id, int benutzerId);
+    Task VerschiebenAsync(int id, int zielId, string position, int benutzerId);
 }
 
 public interface IFreigabeService

@@ -65,6 +65,19 @@ public class KapitelController : BaseController
     }
 
     [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Verschieben(int id, int zielId, string position)
+    {
+        if (!IstEditor) return Forbid();
+        try
+        {
+            await _svc.VerschiebenAsync(id, zielId, position, AktuellerBenutzerId);
+            return Ok();
+        }
+        catch (KeyNotFoundException) { return NotFound("Kapitel nicht gefunden."); }
+        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Loeschen(int id)
     {
         if (!IstAdmin) return Forbid();

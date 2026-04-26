@@ -8,8 +8,15 @@
     bool hatKinder = Model.Unterkapitel.Any();
     var nodeId = $"kap-{Model.Id}";
 }
-<li class="tree-node" data-kapitel-id="@Model.Id">
+<li class="tree-node" data-kapitel-id="@Model.Id" data-eltern-id="@(Model.ElternId?.ToString() ?? "")">
     <div class="d-flex align-items-center gap-2 tree-row" style="padding:.45rem .5rem; padding-left:@(Model.Tiefe * 28 + 4)px; border-radius:var(--mc-radius-sm); margin-bottom:1px;">
+
+        @if (istEditor)
+        {
+            <span class="tree-grip" draggable="true" title="Zum Verschieben ziehen">
+                <i class="bi bi-grip-vertical"></i>
+            </span>
+        }
 
         @* Expand/Collapse Toggle *@
         @if (hatKinder)

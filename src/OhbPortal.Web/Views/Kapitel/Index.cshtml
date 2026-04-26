@@ -68,6 +68,24 @@
         display: none;
     }
     .tree-node:not(:last-child)::before { display: block; }
+
+    /* Drag-and-Drop */
+    .tree-grip {
+        cursor: grab; color: var(--mc-text-muted); font-size: 1rem; padding: 0 .15rem;
+        opacity: .25; transition: opacity .15s, color .15s;
+        user-select: none;
+    }
+    .tree-row:hover .tree-grip { opacity: .85; }
+    .tree-grip:hover { color: var(--mc-primary); }
+    .tree-grip:active { cursor: grabbing; }
+    .tree-row.dnd-dragging { opacity: .45; }
+    .tree-row.dnd-target-above { box-shadow: inset 0 2px 0 var(--mc-primary); }
+    .tree-row.dnd-target-below { box-shadow: inset 0 -2px 0 var(--mc-primary); }
+    .tree-row.dnd-target-inside {
+        background: rgba(0,81,90,.12) !important;
+        outline: 2px dashed var(--mc-primary);
+        outline-offset: -2px;
+    }
 </style>
 
 @if (istEditor)
@@ -218,5 +236,105 @@
             if (e.key === 'W' || e.key === 'w') { e.preventDefault(); alleZuklappen(); }
         }
     });
+
+    // ── Drag-and-Drop (nur Editoren) ──
+    @if (istEditor)
+    {
+        <text>
+        (function() {
+            var dragNodeId = null;
+            var dragRow = null;
+
+            function clearTargets() {
+                document.querySelectorAll('.tree-row').forEach(function(r) {
+                    r.classList.remove('dnd-target-above', 'dnd-target-below', 'dnd-target-inside');
+                });
+            }
+
+            function getToken() {
+                var el = document.querySelector('input[name="__RequestVerificationToken"]');
+                return el ? el.value : null;
+            }
+
+            // Handle (Grip) startet den Drag
+            document.querySelectorAll('.tree-grip').forEach(function(grip) {
+                grip.addEventListener('dragstart', function(e) {
+                    var li = grip.closest('[data-kapitel-id]');
+                    if (!li) return;
+                    dragNodeId = parseInt(li.getAttribute('data-kapitel-id'));
+                    dragRow = li.querySelector(':scope > .tree-row');
+                    if (dragRow) dragRow.classList.add('dnd-dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    try { e.dataTransfer.setData('text/plain', String(dragNodeId)); } catch (_) {}
+                    if (e.dataTransfer.setDragImage && dragRow) {
+                        e.dataTransfer.setDragImage(dragRow, 10, 10);
+                    }
+                });
+                grip.addEventListener('dragend', function() {
+                    if (dragRow) dragRow.classList.remove('dnd-dragging');
+                    clearTargets();
+                    dragNodeId = null;
+                    dragRow = null;
+                });
+            });
+
+            // Jede Zeile ist Drop-Ziel
+            document.querySelectorAll('.tree-row').forEach(function(row) {
+                row.addEventListener('dragover', function(e) {
+                    if (dragNodeId === null) return;
+                    var li = row.closest('[data-kapitel-id]');
+                    if (!li) return;
+                    var targetId = parseInt(li.getAttribute('data-kapitel-id'));
+                    if (targetId === dragNodeId) return; // auf sich selbst -> ignorieren
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+
+                    var rect = row.getBoundingClientRect();
+                    var y = e.clientY - rect.top;
+                    var h = rect.height;
+                    row.classList.remove('dnd-target-above', 'dnd-target-below', 'dnd-target-inside');
+                    if (y < h * 0.28) row.classList.add('dnd-target-above');
+                    else if (y > h * 0.72) row.classList.add('dnd-target-below');
+                    else row.classList.add('dnd-target-inside');
+                });
+
+                row.addEventListener('dragleave', function() {
+                    row.classList.remove('dnd-target-above', 'dnd-target-below', 'dnd-target-inside');
+                });
+
+                row.addEventListener('drop', function(e) {
+                    if (dragNodeId === null) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var li = row.closest('[data-kapitel-id]');
+                    if (!li) return;
+                    var targetId = parseInt(li.getAttribute('data-kapitel-id'));
+                    if (targetId === dragNodeId) { clearTargets(); return; }
+
+                    var position = row.classList.contains('dnd-target-above') ? 'before'
+                                  : row.classList.contains('dnd-target-below') ? 'after'
+                                  : 'inside';
+
+                    clearTargets();
+                    var token = getToken();
+                    if (!token) { alert('Kein Antiforgery-Token gefunden.'); return; }
+
+                    var fd = new FormData();
+                    fd.append('__RequestVerificationToken', token);
+                    fd.append('id', String(dragNodeId));
+                    fd.append('zielId', String(targetId));
+                    fd.append('position', position);
+
+                    fetch('/Kapitel/Verschieben', { method: 'POST', body: fd, credentials: 'same-origin' })
+                        .then(function(res) {
+                            if (res.ok) { location.reload(); return; }
+                            return res.text().then(function(t) { throw new Error(t || res.statusText); });
+                        })
+                        .catch(function(err) { alert('Verschieben fehlgeschlagen: ' + (err.message || err)); });
+                });
+            });
+        })();
+        </text>
+    }
 </script>
 }
