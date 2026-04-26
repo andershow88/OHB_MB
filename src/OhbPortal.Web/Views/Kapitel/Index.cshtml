@@ -10,17 +10,14 @@
         <p class="mc-page-subtitle">Kapitel und Unterkapitel als Baumstruktur</p>
     </div>
     <div class="d-flex gap-2 align-items-center flex-wrap">
-        <button class="btn-mc-outline" onclick="alleAufklappen()" title="Alle aufklappen — Kapitel und Dokumente (Alt+Shift+E)" style="font-size:.8rem; padding:.3rem .75rem;">
-            <i class="bi bi-arrows-expand"></i> Alle auf
-        </button>
-        <button class="btn-mc-outline" onclick="alleZuklappen()" title="Alle zuklappen (Alt+Shift+W)" style="font-size:.8rem; padding:.3rem .75rem;">
-            <i class="bi bi-arrows-collapse"></i> Alle zu
-        </button>
         <button class="btn-mc-outline" onclick="alleKapitelAufklappen()" title="Nur Kapitel-Struktur aufklappen, Dokumente ausblenden" style="font-size:.8rem; padding:.3rem .75rem;">
-            <i class="bi bi-folder2-open"></i> Nur Kapitel auf
+            <i class="bi bi-folder2-open"></i> Kapitel aufklappen
         </button>
-        <button class="btn-mc-outline" onclick="alleKapitelZuklappen()" title="Alle Kapitel zuklappen, Dokumente wieder einblenden" style="font-size:.8rem; padding:.3rem .75rem;">
-            <i class="bi bi-folder"></i> Nur Kapitel zu
+        <button class="btn-mc-outline" onclick="alleAufklappen()" title="Alles aufklappen — Kapitel und Dokumente (Alt+Shift+E)" style="font-size:.8rem; padding:.3rem .75rem;">
+            <i class="bi bi-arrows-expand"></i> Alles aufklappen
+        </button>
+        <button class="btn-mc-outline" onclick="alleZuklappen()" title="Alles zuklappen (Alt+Shift+W)" style="font-size:.8rem; padding:.3rem .75rem;">
+            <i class="bi bi-arrows-collapse"></i> Zuklappen
         </button>
         @if (istEditor)
         {
@@ -393,12 +390,6 @@
         var root = document.getElementById('kapitelBaum');
         if (root) root.classList.add('hide-docs');
         alleAufklappen();
-    }
-
-    function alleKapitelZuklappen() {
-        var root = document.getElementById('kapitelBaum');
-        if (root) root.classList.remove('hide-docs');
-        alleZuklappen();
     }
 
     // Beim ersten Laden den gespeicherten Zustand wiederherstellen
