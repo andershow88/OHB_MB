@@ -16,6 +16,13 @@ public class KapitelController : BaseController
         return View(baum);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> TreePartial()
+    {
+        var baum = await _svc.GetBaumAsync();
+        return PartialView("_KapitelTreeRoot", baum);
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Anlegen(string titel, int? elternId, string? beschreibung, string? icon)
     {

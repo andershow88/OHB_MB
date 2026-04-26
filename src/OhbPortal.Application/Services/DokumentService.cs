@@ -230,6 +230,23 @@ public class DokumentService : IDokumentService
             beschreibung: $"Version {d.AktuelleVersion}");
     }
 
+    public async Task VerschiebenInKapitelAsync(int dokumentId, int neuerKapitelId, int benutzerId)
+    {
+        var d = await _db.Dokumente.FindAsync(dokumentId) ?? throw new KeyNotFoundException();
+        var zielExistiert = await _db.Kapitel.AnyAsync(k => k.Id == neuerKapitelId);
+        if (!zielExistiert) throw new InvalidOperationException("Zielkapitel existiert nicht.");
+        if (d.KapitelId == neuerKapitelId) return;
+
+        var altesKapitelId = d.KapitelId;
+        d.KapitelId = neuerKapitelId;
+        d.GeaendertAm = DateTime.UtcNow;
+        d.GeaendertVonId = benutzerId;
+        await _db.SaveChangesAsync();
+
+        await _audit.LogAsync(AuditTyp.DokumentBearbeitet, benutzerId, dokumentId: dokumentId,
+            beschreibung: $"Per Drag-and-Drop in Kapitel #{neuerKapitelId} verschoben (vorher #{altesKapitelId})");
+    }
+
     /// <summary>
     /// Autosave: aktualisiert das Dokument ohne neue Version oder Audit-Eintrag.
     /// Versionsnummer und -historie bleiben erhalten — sind reserviert für manuelle Speicherungen.

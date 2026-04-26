@@ -1,0 +1,5 @@
+@model IEnumerable<OhbPortal.Application.DTOs.KapitelBaumDto>
+@foreach (var k in Model)
+{
+    <partial name="_KapitelNode" model="k" />
+}

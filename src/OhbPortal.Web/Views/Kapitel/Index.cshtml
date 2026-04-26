@@ -34,10 +34,7 @@
         else
         {
             <ul class="list-unstyled mb-0 tree-root" id="kapitelBaum">
-                @foreach (var k in Model)
-                {
-                    <partial name="_KapitelNode" model="k" />
-                }
+                <partial name="_KapitelTreeRoot" model="Model" />
             </ul>
         }
     </div>
@@ -296,54 +293,113 @@
         document.getElementById('kb_beschreibung').value = beschreibung || '';
     }
 
+    // ── Persistent Expand-State (überlebt Reload + Navigation) ──
+    var EXPAND_KEY = 'ohb-tree-expanded';
+    function loadExpandedSet() {
+        try { return new Set(JSON.parse(localStorage.getItem(EXPAND_KEY) || '[]')); }
+        catch (_) { return new Set(); }
+    }
+    function saveExpandedSet(set) {
+        try { localStorage.setItem(EXPAND_KEY, JSON.stringify(Array.from(set))); } catch (_) {}
+    }
+    function applyExpandedState() {
+        var set = loadExpandedSet();
+        set.forEach(function (id) {
+            var el = document.getElementById('kap-' + id);
+            if (!el) return;
+            el.style.display = '';
+            el.classList.remove('collapsed');
+            el.classList.add('expanded');
+            el.style.maxHeight = 'none';
+            var chev = document.getElementById('chevron-kap-' + id);
+            if (chev) chev.classList.add('open');
+        });
+    }
+
     // ── Tree Toggle ──
     function toggleKapitel(nodeId) {
         var el = document.getElementById(nodeId);
         var chev = document.getElementById('chevron-' + nodeId);
         if (!el) return;
-        if (el.style.display === 'none') {
+        var idMatch = nodeId.match(/^kap-(\d+)/);
+        var id = idMatch ? parseInt(idMatch[1]) : null;
+        var set = loadExpandedSet();
+
+        var isHidden = el.style.display === 'none' || el.classList.contains('collapsed');
+        if (isHidden) {
             el.style.display = '';
             el.classList.remove('collapsed');
             el.classList.add('expanded');
             el.style.maxHeight = el.scrollHeight + 'px';
             if (chev) chev.classList.add('open');
-            setTimeout(function() { el.style.maxHeight = 'none'; }, 300);
+            setTimeout(function () { el.style.maxHeight = 'none'; }, 300);
+            if (id !== null) set.add(id);
         } else {
             el.style.maxHeight = el.scrollHeight + 'px';
-            requestAnimationFrame(function() {
+            requestAnimationFrame(function () {
                 el.classList.add('collapsed');
                 el.classList.remove('expanded');
                 el.style.maxHeight = '0';
             });
             if (chev) chev.classList.remove('open');
-            setTimeout(function() { el.style.display = 'none'; el.style.maxHeight = ''; }, 300);
+            setTimeout(function () { el.style.display = 'none'; el.style.maxHeight = ''; }, 300);
+            if (id !== null) set.delete(id);
         }
+        saveExpandedSet(set);
     }
 
     function alleAufklappen() {
-        document.querySelectorAll('.tree-children').forEach(function(el) {
+        var set = loadExpandedSet();
+        document.querySelectorAll('.tree-children').forEach(function (el) {
             el.style.display = '';
             el.classList.remove('collapsed');
             el.classList.add('expanded');
             el.style.maxHeight = 'none';
+            var m = el.id && el.id.match(/^kap-(\d+)/);
+            if (m) set.add(parseInt(m[1]));
         });
-        document.querySelectorAll('.tree-chevron').forEach(function(c) { c.classList.add('open'); });
+        document.querySelectorAll('.tree-chevron').forEach(function (c) { c.classList.add('open'); });
+        saveExpandedSet(set);
     }
 
     function alleZuklappen() {
-        document.querySelectorAll('.tree-children').forEach(function(el) {
+        document.querySelectorAll('.tree-children').forEach(function (el) {
             el.style.display = 'none';
             el.classList.add('collapsed');
             el.classList.remove('expanded');
             el.style.maxHeight = '';
         });
-        document.querySelectorAll('.tree-chevron').forEach(function(c) { c.classList.remove('open'); });
+        document.querySelectorAll('.tree-chevron').forEach(function (c) { c.classList.remove('open'); });
+        saveExpandedSet(new Set());
     }
 
+    // Beim ersten Laden den gespeicherten Zustand wiederherstellen
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyExpandedState);
+    } else {
+        applyExpandedState();
+    }
+
+    // ── Soft-Reload: Tree per AJAX austauschen statt Page-Reload ──
+    async function reloadTree() {
+        try {
+            var resp = await fetch('/Kapitel/TreePartial', { credentials: 'same-origin' });
+            if (!resp.ok) throw new Error('Tree konnte nicht geladen werden (' + resp.status + ')');
+            var html = await resp.text();
+            var root = document.getElementById('kapitelBaum');
+            if (!root) return;
+            root.innerHTML = html;
+            applyExpandedState();
+            if (window.initTreeDnD) window.initTreeDnD();
+        } catch (ex) {
+            if (window.mcToast) mcToast('Aktualisierung fehlgeschlagen — Seite wird neu geladen.', 'danger');
+            setTimeout(function () { location.reload(); }, 1200);
+        }
+    }
+    window.reloadTree = reloadTree;
+
     // ── Keyboard Shortcuts ──
-    // Alt+Shift+E = Alle aufklappen
-    // Alt+Shift+W = Alle zuklappen
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey) {
             if (e.key === 'E' || e.key === 'e') { e.preventDefault(); alleAufklappen(); }
             if (e.key === 'W' || e.key === 'w') { e.preventDefault(); alleZuklappen(); }
@@ -354,98 +410,150 @@
     @if (istEditor)
     {
         <text>
-        (function() {
-            var dragNodeId = null;
-            var dragRow = null;
+        (function () {
+            var dragState = null;  // { type, id, kapitelIdOfDoc?, row }
 
             function clearTargets() {
-                document.querySelectorAll('.tree-row').forEach(function(r) {
+                document.querySelectorAll('.tree-row').forEach(function (r) {
                     r.classList.remove('dnd-target-above', 'dnd-target-below', 'dnd-target-inside');
                 });
             }
-
             function getToken() {
                 var el = document.querySelector('input[name="__RequestVerificationToken"]');
                 return el ? el.value : null;
             }
 
-            // Handle (Grip) startet den Drag
-            document.querySelectorAll('.tree-grip').forEach(function(grip) {
-                grip.addEventListener('dragstart', function(e) {
-                    var li = grip.closest('[data-kapitel-id]');
-                    if (!li) return;
-                    dragNodeId = parseInt(li.getAttribute('data-kapitel-id'));
-                    dragRow = li.querySelector(':scope > .tree-row');
-                    if (dragRow) dragRow.classList.add('dnd-dragging');
-                    e.dataTransfer.effectAllowed = 'move';
-                    try { e.dataTransfer.setData('text/plain', String(dragNodeId)); } catch (_) {}
-                    if (e.dataTransfer.setDragImage && dragRow) {
-                        e.dataTransfer.setDragImage(dragRow, 10, 10);
-                    }
-                });
-                grip.addEventListener('dragend', function() {
-                    if (dragRow) dragRow.classList.remove('dnd-dragging');
-                    clearTargets();
-                    dragNodeId = null;
-                    dragRow = null;
-                });
-            });
-
-            // Jede Zeile ist Drop-Ziel
-            document.querySelectorAll('.tree-row').forEach(function(row) {
-                row.addEventListener('dragover', function(e) {
-                    if (dragNodeId === null) return;
-                    var li = row.closest('[data-kapitel-id]');
-                    if (!li) return;
-                    var targetId = parseInt(li.getAttribute('data-kapitel-id'));
-                    if (targetId === dragNodeId) return; // auf sich selbst -> ignorieren
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-
-                    var rect = row.getBoundingClientRect();
-                    var y = e.clientY - rect.top;
-                    var h = rect.height;
-                    row.classList.remove('dnd-target-above', 'dnd-target-below', 'dnd-target-inside');
-                    if (y < h * 0.28) row.classList.add('dnd-target-above');
-                    else if (y > h * 0.72) row.classList.add('dnd-target-below');
-                    else row.classList.add('dnd-target-inside');
+            function bindHandlers() {
+                // Grip startet Drag — auf Kapiteln und Dokumenten
+                document.querySelectorAll('.tree-grip').forEach(function (grip) {
+                    grip.addEventListener('dragstart', function (e) {
+                        var docLi = grip.closest('[data-dokument-id]');
+                        var kapLi = docLi ? null : grip.closest('[data-kapitel-id]');
+                        var li = docLi || kapLi;
+                        if (!li) return;
+                        if (docLi) {
+                            dragState = {
+                                type: 'dokument',
+                                id: parseInt(docLi.getAttribute('data-dokument-id')),
+                                kapitelIdOfDoc: parseInt(docLi.getAttribute('data-kapitel-id-of-doc') || '0'),
+                                row: docLi.querySelector(':scope > .tree-row')
+                            };
+                        } else {
+                            dragState = {
+                                type: 'kapitel',
+                                id: parseInt(kapLi.getAttribute('data-kapitel-id')),
+                                row: kapLi.querySelector(':scope > .tree-row')
+                            };
+                        }
+                        if (dragState.row) dragState.row.classList.add('dnd-dragging');
+                        e.dataTransfer.effectAllowed = 'move';
+                        try { e.dataTransfer.setData('text/plain', String(dragState.id)); } catch (_) {}
+                        if (e.dataTransfer.setDragImage && dragState.row) {
+                            e.dataTransfer.setDragImage(dragState.row, 10, 10);
+                        }
+                    });
+                    grip.addEventListener('dragend', function () {
+                        if (dragState && dragState.row) dragState.row.classList.remove('dnd-dragging');
+                        clearTargets();
+                        dragState = null;
+                    });
                 });
 
-                row.addEventListener('dragleave', function() {
-                    row.classList.remove('dnd-target-above', 'dnd-target-below', 'dnd-target-inside');
+                // Jede Zeile ist Drop-Ziel
+                document.querySelectorAll('.tree-row').forEach(function (row) {
+                    row.addEventListener('dragover', function (e) {
+                        if (!dragState) return;
+                        var kapLi = row.closest('[data-kapitel-id]');
+                        var docLi = !kapLi ? row.closest('[data-dokument-id]') : null;
+                        if (!kapLi && !docLi) return;
+                        // Self-drop ignorieren
+                        if (kapLi && dragState.type === 'kapitel'
+                            && parseInt(kapLi.getAttribute('data-kapitel-id')) === dragState.id) return;
+                        if (docLi && dragState.type === 'dokument'
+                            && parseInt(docLi.getAttribute('data-dokument-id')) === dragState.id) return;
+
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        var rect = row.getBoundingClientRect();
+                        var y = e.clientY - rect.top;
+                        var h = rect.height;
+                        row.classList.remove('dnd-target-above', 'dnd-target-below', 'dnd-target-inside');
+
+                        if (dragState.type === 'dokument') {
+                            // Bei Dokumenten gilt nur "in Kapitel verschieben"
+                            row.classList.add('dnd-target-inside');
+                        } else {
+                            if (y < h * 0.28) row.classList.add('dnd-target-above');
+                            else if (y > h * 0.72) row.classList.add('dnd-target-below');
+                            else row.classList.add('dnd-target-inside');
+                        }
+                    });
+                    row.addEventListener('dragleave', function () {
+                        row.classList.remove('dnd-target-above', 'dnd-target-below', 'dnd-target-inside');
+                    });
+                    row.addEventListener('drop', function (e) {
+                        if (!dragState) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        var kapLi = row.closest('[data-kapitel-id]');
+                        var docLi = !kapLi ? row.closest('[data-dokument-id]') : null;
+                        if (!kapLi && !docLi) { clearTargets(); return; }
+
+                        if (kapLi && dragState.type === 'kapitel'
+                            && parseInt(kapLi.getAttribute('data-kapitel-id')) === dragState.id) {
+                            clearTargets(); return;
+                        }
+
+                        var token = getToken();
+                        if (!token) { if (window.mcToast) mcToast('Antiforgery-Token fehlt', 'danger'); return; }
+
+                        var url, fd = new FormData();
+                        fd.append('__RequestVerificationToken', token);
+
+                        if (dragState.type === 'kapitel') {
+                            var targetId = parseInt(kapLi.getAttribute('data-kapitel-id'));
+                            var position = row.classList.contains('dnd-target-above') ? 'before'
+                                          : row.classList.contains('dnd-target-below') ? 'after'
+                                          : 'inside';
+                            url = '/Kapitel/Verschieben';
+                            fd.append('id', String(dragState.id));
+                            fd.append('zielId', String(targetId));
+                            fd.append('position', position);
+                        } else {
+                            var zielKapitelId = kapLi
+                                ? parseInt(kapLi.getAttribute('data-kapitel-id'))
+                                : parseInt(docLi.getAttribute('data-kapitel-id-of-doc') || '0');
+                            if (!zielKapitelId || zielKapitelId === dragState.kapitelIdOfDoc) {
+                                clearTargets(); dragState = null; return;
+                            }
+                            url = '/Dokumente/Verschieben';
+                            fd.append('id', String(dragState.id));
+                            fd.append('zielKapitelId', String(zielKapitelId));
+                        }
+
+                        clearTargets();
+
+                        fetch(url, { method: 'POST', body: fd, credentials: 'same-origin' })
+                            .then(function (res) {
+                                if (res.ok) {
+                                    if (window.mcToast) mcToast('Verschoben.', 'success', { duration: 2000 });
+                                    return reloadTree();
+                                }
+                                return res.text().then(function (t) { throw new Error(t || res.statusText); });
+                            })
+                            .catch(function (err) {
+                                if (window.mcToast) mcToast('Verschieben fehlgeschlagen: ' + (err.message || err), 'danger');
+                            });
+                    });
                 });
+            }
 
-                row.addEventListener('drop', function(e) {
-                    if (dragNodeId === null) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    var li = row.closest('[data-kapitel-id]');
-                    if (!li) return;
-                    var targetId = parseInt(li.getAttribute('data-kapitel-id'));
-                    if (targetId === dragNodeId) { clearTargets(); return; }
-
-                    var position = row.classList.contains('dnd-target-above') ? 'before'
-                                  : row.classList.contains('dnd-target-below') ? 'after'
-                                  : 'inside';
-
-                    clearTargets();
-                    var token = getToken();
-                    if (!token) { alert('Kein Antiforgery-Token gefunden.'); return; }
-
-                    var fd = new FormData();
-                    fd.append('__RequestVerificationToken', token);
-                    fd.append('id', String(dragNodeId));
-                    fd.append('zielId', String(targetId));
-                    fd.append('position', position);
-
-                    fetch('/Kapitel/Verschieben', { method: 'POST', body: fd, credentials: 'same-origin' })
-                        .then(function(res) {
-                            if (res.ok) { location.reload(); return; }
-                            return res.text().then(function(t) { throw new Error(t || res.statusText); });
-                        })
-                        .catch(function(err) { alert('Verschieben fehlgeschlagen: ' + (err.message || err)); });
-                });
-            });
+            window.initTreeDnD = bindHandlers;
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', bindHandlers);
+            } else {
+                bindHandlers();
+            }
         })();
         </text>
     }

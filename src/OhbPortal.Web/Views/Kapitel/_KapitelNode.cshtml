@@ -90,9 +90,15 @@
             }
             @foreach (var d in Model.Dokumente)
             {
-                <li class="tree-node tree-doc-node">
+                <li class="tree-node tree-doc-node" data-dokument-id="@d.Id" data-kapitel-id-of-doc="@Model.Id">
                     <div class="d-flex align-items-center gap-2 tree-row tree-doc-row"
                          style="padding:.32rem .5rem; padding-left:@((Model.Tiefe + 1) * 28 + 4)px; border-radius:var(--mc-radius-sm); margin-bottom:1px;">
+                        @if (istEditor)
+                        {
+                            <span class="tree-grip" draggable="true" title="Dokument verschieben">
+                                <i class="bi bi-grip-vertical"></i>
+                            </span>
+                        }
                         <span style="width:20px; display:inline-block;"></span>
                         <i class="bi @(d.Archiviert ? "bi-archive" : "bi-file-earmark-text")"
                            style="color:var(--mc-text-muted); font-size:.95rem; flex-shrink:0;"></i>

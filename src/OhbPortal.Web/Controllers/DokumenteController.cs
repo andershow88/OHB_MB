@@ -215,6 +215,19 @@ public class DokumenteController : BaseController
         return RedirectToAction(nameof(Details), new { id = dokumentId });
     }
 
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Verschieben(int id, int zielKapitelId)
+    {
+        if (!IstEditor) return Forbid();
+        try
+        {
+            await _svc.VerschiebenInKapitelAsync(id, zielKapitelId, AktuellerBenutzerId);
+            return Ok();
+        }
+        catch (KeyNotFoundException) { return NotFound("Dokument nicht gefunden."); }
+        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+    }
+
     [HttpGet]
     public async Task<IActionResult> Drucken(int id)
     {
