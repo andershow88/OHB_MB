@@ -351,6 +351,27 @@ public class DokumenteController : BaseController
     }
 
     [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DateiHochladen(IFormFile datei, int? dokumentId)
+    {
+        if (!IstEditor) return Forbid();
+        if (datei is null || datei.Length == 0)
+            return Json(new { error = "Keine Datei übertragen." });
+        if (datei.Length > 25 * 1024 * 1024)
+            return Json(new { error = "Datei zu groß (max. 25 MB)." });
+
+        var ordner = dokumentId.HasValue ? $"dok_{dokumentId}/dateien" : "dateien_temp";
+        await using var stream = datei.OpenReadStream();
+        var key = await _fileStorage.SpeichernAsync(stream, datei.FileName, ordner);
+        return Json(new
+        {
+            url = $"/uploads/{key}",
+            filename = datei.FileName,
+            sizeKb = Math.Round((double)datei.Length / 1024, 1),
+            contentType = datei.ContentType
+        });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> AnhangHochladen(int dokumentId, IFormFile datei)
     {
         if (!IstEditor) return Forbid();

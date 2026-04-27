@@ -85,10 +85,32 @@
     /* Inhalt-Tab: großer Editor */
     .ql-toolbar.ql-snow, .ql-container.ql-snow { border-color: var(--mc-border); }
     .ql-toolbar.ql-snow {
-        position: sticky; top: 0; z-index: 5;
+        position: sticky;
+        top: var(--mc-edit-header-h, 0px);
+        z-index: 4; /* unter mc-edit-header (z-index 30) */
         background: var(--mc-bg-card);
         border-top-left-radius: var(--mc-radius-sm); border-top-right-radius: var(--mc-radius-sm);
+        box-shadow: 0 2px 6px rgba(0,0,0,.04);
     }
+    /* Datei-Anhang als Chip im Editor und in der Detailansicht */
+    .ql-editor a[data-mc-datei], .druck-content a[data-mc-datei] {
+        display: inline-flex; align-items: center; gap: .35rem;
+        padding: .15rem .55rem;
+        background: rgba(0,81,90,.08);
+        border: 1px solid var(--mc-border);
+        border-radius: 4px;
+        text-decoration: none;
+        color: var(--mc-primary);
+        font-size: .88em;
+        font-weight: 500;
+        margin: 0 .15rem;
+    }
+    .ql-editor a[data-mc-datei]:hover, .druck-content a[data-mc-datei]:hover {
+        background: rgba(0,81,90,.14);
+    }
+    /* Bootstrap-Icon im Datei-Toolbar-Button */
+    .ql-toolbar .ql-datei { width: 28px; height: 24px; }
+    .ql-toolbar .ql-datei svg { width: 18px; height: 18px; }
     .ql-container.ql-snow {
         border-bottom-left-radius: var(--mc-radius-sm); border-bottom-right-radius: var(--mc-radius-sm);
     }
@@ -483,6 +505,14 @@
         const hidden = document.getElementById('InhaltHtmlHidden');
         const initial = hidden.value || '';
 
+        // Custom-Icon für den Datei-Anhang-Button (Bootstrap-Icon Paperclip als SVG)
+        const QuillIcons = Quill.import('ui/icons');
+        QuillIcons['datei'] =
+            '<svg viewBox="0 0 18 18" width="18" height="18">' +
+            '<path class="ql-stroke" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" ' +
+            'd="M14 7L8.5 12.5a2.121 2.121 0 1 1-3-3L11 4a3.535 3.535 0 1 1 5 5L9.5 15.5a4.95 4.95 0 1 1-7-7L9 2"/>' +
+            '</svg>';
+
         const toolbarOptions = [
             [{ header: [1, 2, 3, 4, false] }],
             [{ font: [] }],
@@ -493,7 +523,7 @@
             [{ list: 'ordered' }, { list: 'bullet' }, { list: 'check' }],
             [{ indent: '-1' }, { indent: '+1' }],
             ['blockquote', 'code-block'],
-            ['link', 'image', 'video'],
+            ['link', 'image', 'video', 'datei'],
             ['clean']
         ];
 
@@ -503,7 +533,10 @@
             modules: {
                 toolbar: {
                     container: toolbarOptions,
-                    handlers: { image: bildEinfuegen }
+                    handlers: {
+                        image: bildEinfuegen,
+                        datei: dateiEinfuegen
+                    }
                 }
             }
         });
@@ -557,6 +590,59 @@
                 }
             };
         }
+
+        async function dateiEinfuegen() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.click();
+            input.onchange = async () => {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                if (file.size > 25 * 1024 * 1024) {
+                    if (window.mcToast) mcToast('Datei zu groß (max. 25 MB).', 'danger');
+                    return;
+                }
+                const fd = new FormData();
+                fd.append('datei', file);
+                if (currentDokumentId) fd.append('dokumentId', currentDokumentId);
+                fd.append('__RequestVerificationToken', antiForgeryToken());
+                try {
+                    if (window.mcToast) mcToast('Lade ' + file.name + ' hoch …', 'info', { duration: 1800 });
+                    const resp = await fetch('/Dokumente/DateiHochladen', { method: 'POST', body: fd });
+                    const data = await resp.json();
+                    if (data.error) { if (window.mcToast) mcToast(data.error, 'danger'); return; }
+                    if (data.url) {
+                        const range = quill.getSelection(true) || { index: quill.getLength() };
+                        const safeName = (data.filename || file.name).replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                        const sizeKb = data.sizeKb || Math.round(file.size / 1024);
+                        const sizeLabel = sizeKb > 1024 ? (sizeKb / 1024).toFixed(1) + ' MB' : sizeKb + ' KB';
+                        const html =
+                            '<a href="' + data.url + '" target="_blank" rel="noopener" download="' + safeName + '" data-mc-datei="1" title="' + safeName + ' · ' + sizeLabel + '">' +
+                            '📎 ' + safeName + ' (' + sizeLabel + ')' +
+                            '</a>&nbsp;';
+                        quill.clipboard.dangerouslyPasteHTML(range.index, html, 'user');
+                        quill.setSelection(range.index + safeName.length + 8, 0);
+                        if (window.mcToast) mcToast('Datei eingefügt.', 'success', { duration: 1800 });
+                    }
+                } catch (ex) {
+                    if (window.mcToast) mcToast('Fehler beim Upload: ' + ex.message, 'danger');
+                }
+            };
+        }
+
+        // Sticky-Toolbar: Header-Höhe messen und als CSS-Variable setzen
+        function updateEditorStickyOffset() {
+            const header = document.querySelector('.mc-edit-header');
+            if (!header) return;
+            const h = header.getBoundingClientRect().height;
+            document.documentElement.style.setProperty('--mc-edit-header-h', h + 'px');
+        }
+        updateEditorStickyOffset();
+        window.addEventListener('resize', updateEditorStickyOffset);
+        // Bei Tab-Wechsel und beim ersten Quill-Render aktualisieren
+        document.querySelectorAll('.mc-edit-tabs button').forEach(b =>
+            b.addEventListener('click', () => setTimeout(updateEditorStickyOffset, 60)));
+        setTimeout(updateEditorStickyOffset, 100);
 
         // ─────────────────────────────────────────────────────────────
         // Tag-Chips
