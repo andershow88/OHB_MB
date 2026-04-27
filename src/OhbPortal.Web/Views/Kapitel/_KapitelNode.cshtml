@@ -73,11 +73,12 @@
             </button>
             @if (istAdmin)
             {
-                <form asp-action="Loeschen" asp-route-id="@Model.Id" method="post" style="display:inline;"
-                      onsubmit="return confirm('Kapitel wirklich löschen?');">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn-mc-ghost" style="font-size:.72rem; padding:.15rem .4rem; color:var(--mc-danger, #c44);" title="Löschen"><i class="bi bi-trash"></i></button>
-                </form>
+                <button type="button" class="btn-mc-ghost"
+                        style="font-size:.72rem; padding:.15rem .4rem; color:var(--mc-danger, #c44);"
+                        title="Kapitel löschen"
+                        onclick="kapitelLoeschenAnfragen(@Model.Id, '@Html.Raw(titelEnc)')">
+                    <i class="bi bi-trash"></i>
+                </button>
             }
         </div>
     </div>

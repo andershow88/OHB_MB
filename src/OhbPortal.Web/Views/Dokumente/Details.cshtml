@@ -76,7 +76,7 @@
         @if (istEditor && !Model.Geloescht)
         {
             <form asp-action="InPapierkorb" asp-route-id="@Model.Id" method="post"
-                  onsubmit="return confirm('Dokument in Papierkorb verschieben?');">
+                  onsubmit="return mcAsk(this, 'Dokument in Papierkorb verschieben?', { okText: 'Verschieben' });">
                 @Html.AntiForgeryToken()
                 <button class="btn-mc-ghost" style="color:var(--mc-danger);">
                     <i class="bi bi-trash me-1"></i>In Papierkorb
@@ -157,7 +157,7 @@
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         <form asp-controller="FreigabeGruppen" asp-action="Loeschen" method="post"
-                                              style="display:inline;" onsubmit="return confirm('Freigabegruppe löschen?');">
+                                              style="display:inline;" onsubmit="return mcAsk(this, 'Freigabegruppe löschen?');">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="gruppeId" value="@g.Id" />
                                             <input type="hidden" name="dokumentId" value="@Model.Id" />
@@ -500,7 +500,7 @@
                                 {
                                     <td>
                                         <form asp-controller="Kenntnisnahmen" asp-action="Loeschen" method="post"
-                                              onsubmit="return confirm('Kenntnisnahme entfernen?');" style="display:inline;">
+                                              onsubmit="return mcAsk(this, 'Kenntnisnahme entfernen?');" style="display:inline;">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="kenntnisnahmeId" value="@k.Id" />
                                             <input type="hidden" name="dokumentId" value="@Model.Id" />
@@ -708,7 +708,7 @@
                                 {
                                     <td>
                                         <form asp-controller="Berechtigungen" asp-action="Entfernen" method="post"
-                                              onsubmit="return confirm('Berechtigung entfernen?');" style="display:inline;">
+                                              onsubmit="return mcAsk(this, 'Berechtigung entfernen?');" style="display:inline;">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="id" value="@b.Id" />
                                             <input type="hidden" name="dokumentId" value="@Model.Id" />
@@ -904,7 +904,7 @@
                                 @if (istEditor)
                                 {
                                     <form asp-action="AnhangLoeschen" method="post" style="display:inline;"
-                                          onsubmit="return confirm('Anhang löschen?');">
+                                          onsubmit="return mcAsk(this, 'Anhang löschen?');">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="anhangId" value="@a.Id" />
                                         <input type="hidden" name="dokumentId" value="@Model.Id" />

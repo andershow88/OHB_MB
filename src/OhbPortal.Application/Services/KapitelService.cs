@@ -108,9 +108,13 @@ public class KapitelService : IKapitelService
             .FirstOrDefaultAsync(x => x.Id == id) ?? throw new KeyNotFoundException();
         if (k.Unterkapitel.Any() || k.Dokumente.Any(d => !d.Geloescht))
             throw new InvalidOperationException("Kapitel enthält Unterkapitel oder aktive Dokumente.");
+
+        var titel = k.Titel;
         _db.Kapitel.Remove(k);
         await _db.SaveChangesAsync();
-        await _audit.LogAsync(AuditTyp.KapitelGeloescht, benutzerId, kapitelId: id);
+        // Audit nach dem Löschen — KapitelId bewusst null, da das Kapitel nicht mehr existiert (FK-Schutz).
+        await _audit.LogAsync(AuditTyp.KapitelGeloescht, benutzerId, kapitelId: null,
+            beschreibung: $"Kapitel '{titel}' (Id {id}) gelöscht");
     }
 
     public Task NachObenVerschiebenAsync(int id, int benutzerId)

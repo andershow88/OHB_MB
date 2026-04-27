@@ -23,7 +23,7 @@
     <div class="d-flex gap-2">
         <a asp-action="Teams" class="btn-mc-ghost"><i class="bi bi-arrow-left"></i> Zurück</a>
         <form asp-action="TeamLoeschen" asp-route-id="@Model.Id" method="post" style="display:inline;"
-              onsubmit="return confirm('Team wirklich löschen?');">
+              onsubmit="return mcAsk(this, 'Team wirklich löschen?');">
             @Html.AntiForgeryToken()
             <button type="submit" class="btn-mc-ghost" style="color:var(--mc-danger);">
                 <i class="bi bi-trash"></i> Löschen
@@ -101,7 +101,7 @@
                                     <div class="small text-muted">@m.Rolle</div>
                                 </div>
                                 <form asp-action="TeamMitgliedEntfernen" method="post" style="display:inline;"
-                                      onsubmit="return confirm('Mitglied entfernen?');">
+                                      onsubmit="return mcAsk(this, 'Mitglied entfernen?');">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="teamId" value="@Model.Id" />
                                     <input type="hidden" name="benutzerId" value="@m.Id" />

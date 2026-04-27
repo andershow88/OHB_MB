@@ -1002,6 +1002,24 @@ a:hover { color: var(--mc-primary-dark); }
 .section-divider { border-top: 2px solid var(--mc-border); margin: 1.5rem 0; }
 
 /* ============================================================
+   BUTTON DANGER (Rot — für Löschen-Aktionen)
+   ============================================================ */
+.btn-mc-danger {
+    display: inline-flex; align-items: center; gap: .35rem;
+    background: var(--mc-danger, #c44);
+    color: #fff;
+    border: 1px solid var(--mc-danger, #c44);
+    padding: .55rem 1.1rem;
+    border-radius: var(--mc-radius-sm, 8px);
+    font-size: .9rem; font-weight: 500;
+    cursor: pointer; text-decoration: none;
+    transition: background .15s, border-color .15s, transform .05s;
+}
+.btn-mc-danger:hover { background: #a13030; border-color: #a13030; color: #fff; }
+.btn-mc-danger:active { transform: translateY(1px); }
+.btn-mc-danger:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ============================================================
    FORM CONTROLS — Modernes Styling für Selects & Inputs
    ============================================================ */
 .form-control,

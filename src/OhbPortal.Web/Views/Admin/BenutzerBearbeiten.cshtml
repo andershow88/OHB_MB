@@ -83,7 +83,7 @@
                     </div>
                     <div class="col-md-3">
                         <button type="submit" class="btn-mc-ghost w-100" style="font-size:.82rem; padding:.35rem .5rem; border-color:var(--mc-gold); color:var(--mc-gold);"
-                                onclick="return confirm('Passwort wirklich zurücksetzen?');">
+                                onclick="return mcAsk(this, 'Passwort wirklich zurücksetzen?', { okText: 'Zurücksetzen', danger: false });">
                             <i class="bi bi-arrow-counterclockwise"></i> Zurücksetzen
                         </button>
                     </div>
@@ -136,7 +136,7 @@
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="aktiv" value="false" />
                         <button type="submit" class="btn-mc-ghost w-100" style="color:var(--mc-danger);"
-                                onclick="return confirm('Benutzer deaktivieren? Er kann sich nicht mehr anmelden.');">
+                                onclick="return mcAsk(this, 'Benutzer deaktivieren? Er kann sich nicht mehr anmelden.', { okText: 'Deaktivieren' });">
                             <i class="bi bi-slash-circle"></i> Benutzer deaktivieren
                         </button>
                     </form>

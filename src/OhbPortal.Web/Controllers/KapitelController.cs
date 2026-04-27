@@ -88,12 +88,18 @@ public class KapitelController : BaseController
     public async Task<IActionResult> Loeschen(int id)
     {
         if (!IstAdmin) return Forbid();
+        bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
         try
         {
             await _svc.LoeschenAsync(id, AktuellerBenutzerId);
+            if (isAjax) return Ok();
             TempData["Erfolg"] = "Kapitel gelöscht.";
         }
-        catch (InvalidOperationException ex) { TempData["Fehler"] = ex.Message; }
+        catch (InvalidOperationException ex)
+        {
+            if (isAjax) return BadRequest(ex.Message);
+            TempData["Fehler"] = ex.Message;
+        }
         return RedirectToAction(nameof(Index));
     }
 }
