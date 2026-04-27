@@ -448,15 +448,37 @@ public class DokumenteController : BaseController
 
     private async Task FuelleDropdowns(int? aktKapitelId)
     {
-        var kapitel = await _db.Kapitel
-            .Include(k => k.ElternKapitel)
-            .OrderBy(k => k.ElternKapitelId).ThenBy(k => k.Sortierung)
-            .Select(k => new { k.Id, Pfad = (k.ElternKapitel != null ? k.ElternKapitel.Titel + " › " : "") + k.Titel })
+        // Themenbaum-Struktur 1:1 abbilden: depth-first nach Sortierung,
+        // mit Unicode-Einrückung pro Tiefenstufe.
+        var alleKapitel = await _db.Kapitel
+            .Select(k => new { k.Id, k.Titel, k.ElternKapitelId, k.Sortierung })
             .ToListAsync();
-        ViewBag.Kapitel = new SelectList(kapitel, "Id", "Pfad", aktKapitelId);
+
+        var optionen = new List<KapitelDropdownOption>();
+        void Walk(int? parentId, int tiefe)
+        {
+            var kinder = alleKapitel
+                .Where(x => x.ElternKapitelId == parentId)
+                .OrderBy(x => x.Sortierung)
+                .ThenBy(x => x.Titel)
+                .ToList();
+            foreach (var k in kinder)
+            {
+                string prefix = tiefe == 0
+                    ? string.Empty
+                    : new string(' ', (tiefe - 1) * 4) + "└ ";
+                optionen.Add(new KapitelDropdownOption(k.Id, prefix + k.Titel));
+                Walk(k.Id, tiefe + 1);
+            }
+        }
+        Walk(null, 0);
+
+        ViewBag.Kapitel = new SelectList(optionen, nameof(KapitelDropdownOption.Id), nameof(KapitelDropdownOption.Anzeige), aktKapitelId);
 
         var teams = await _db.Teams.Where(t => t.IstAktiv).OrderBy(t => t.Name)
             .Select(t => new { t.Id, t.Name }).ToListAsync();
         ViewBag.Teams = new SelectList(teams, "Id", "Name");
     }
+
+    private record KapitelDropdownOption(int Id, string Anzeige);
 }
