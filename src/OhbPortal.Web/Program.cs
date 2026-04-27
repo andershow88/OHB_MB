@@ -152,6 +152,54 @@ using (var scope = app.Services.CreateScope())
     {
         log.LogWarning(ex, "KiFeedbacks-Tabelle konnte nicht angelegt/geprüft werden");
     }
+
+    // Sicherstellen, dass die Spalte "Sortierung" auf Dokumente existiert (für Drag-and-Drop-Reihenfolge)
+    try
+    {
+        var providerName = db.Database.ProviderName ?? string.Empty;
+        var sortDdl = providerName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase)
+            ? @"
+                CREATE TABLE IF NOT EXISTS ""__sortierungs_check"" (id INTEGER);
+                /* SQLite ignoriert ADD COLUMN-Fehler, wenn die Spalte schon existiert, leider nicht.
+                   Wir prüfen via PRAGMA und addieren bei Bedarf. */"
+            : @"ALTER TABLE ""Dokumente"" ADD COLUMN IF NOT EXISTS ""Sortierung"" INTEGER NOT NULL DEFAULT 0;";
+
+        if (providerName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            // SQLite: prüfen ob Spalte existiert, dann ALTER
+            var conn = db.Database.GetDbConnection();
+            await conn.OpenAsync();
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "PRAGMA table_info(\"Dokumente\")";
+                using var reader = await cmd.ExecuteReaderAsync();
+                bool hasSort = false;
+                while (await reader.ReadAsync())
+                {
+                    if (string.Equals(reader["name"]?.ToString(), "Sortierung", StringComparison.OrdinalIgnoreCase))
+                    {
+                        hasSort = true;
+                        break;
+                    }
+                }
+                reader.Close();
+                if (!hasSort)
+                {
+                    using var add = conn.CreateCommand();
+                    add.CommandText = "ALTER TABLE \"Dokumente\" ADD COLUMN \"Sortierung\" INTEGER NOT NULL DEFAULT 0";
+                    await add.ExecuteNonQueryAsync();
+                }
+            }
+        }
+        else
+        {
+            await db.Database.ExecuteSqlRawAsync(sortDdl);
+        }
+    }
+    catch (Exception ex)
+    {
+        log.LogWarning(ex, "Spalte 'Sortierung' auf Dokumente konnte nicht angelegt/geprüft werden");
+    }
 }
 
 app.Run();

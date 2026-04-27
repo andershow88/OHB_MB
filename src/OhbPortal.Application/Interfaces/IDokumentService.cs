@@ -12,6 +12,7 @@ public interface IDokumentService
     Task AktualisierenAsync(int id, DokumentBearbeitenDto dto, int benutzerId, string? aenderungshinweis = null);
     Task AutosaveAsync(int id, DokumentBearbeitenDto dto, int benutzerId);
     Task VerschiebenInKapitelAsync(int dokumentId, int neuerKapitelId, int benutzerId);
+    Task VerschiebenAsync(int dokumentId, int neuerKapitelId, int? referenzDokId, string? position, int benutzerId);
     Task StatusAendernAsync(int id, DokumentStatus neuerStatus, int benutzerId, string? notiz = null);
     Task ArchivierenAsync(int id, int benutzerId);
     Task WiederherstellenAsync(int id, int benutzerId);

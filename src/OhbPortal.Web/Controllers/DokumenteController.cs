@@ -216,12 +216,12 @@ public class DokumenteController : BaseController
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Verschieben(int id, int zielKapitelId)
+    public async Task<IActionResult> Verschieben(int id, int zielKapitelId, int? referenzDokId, string? position)
     {
         if (!IstEditor) return Forbid();
         try
         {
-            await _svc.VerschiebenInKapitelAsync(id, zielKapitelId, AktuellerBenutzerId);
+            await _svc.VerschiebenAsync(id, zielKapitelId, referenzDokId, position, AktuellerBenutzerId);
             return Ok();
         }
         catch (KeyNotFoundException) { return NotFound("Dokument nicht gefunden."); }

@@ -121,6 +121,12 @@ public class DokumentService : IDokumentService
 
     public async Task<int> ErstellenAsync(DokumentErstellenDto dto, int benutzerId)
     {
+        // Sortierung: ans Ende des Zielkapitels
+        var maxSort = await _db.Dokumente
+            .Where(x => x.KapitelId == dto.KapitelId && !x.Geloescht)
+            .Select(x => (int?)x.Sortierung)
+            .MaxAsync() ?? -1;
+
         var d = new Dokument
         {
             Titel = dto.Titel,
@@ -141,7 +147,8 @@ public class DokumentService : IDokumentService
             GeaendertAm = DateTime.UtcNow,
             ErstelltVonId = benutzerId,
             GeaendertVonId = benutzerId,
-            AktuelleVersion = 1
+            AktuelleVersion = 1,
+            Sortierung = maxSort + 1
         };
         _db.Dokumente.Add(d);
         await _db.SaveChangesAsync();
@@ -232,19 +239,86 @@ public class DokumentService : IDokumentService
 
     public async Task VerschiebenInKapitelAsync(int dokumentId, int neuerKapitelId, int benutzerId)
     {
+        // Verschieben ans Ende des Zielkapitels
+        await VerschiebenAsync(dokumentId, neuerKapitelId, null, null, benutzerId);
+    }
+
+    /// <summary>
+    /// Flexibles Verschieben:
+    /// - neuerKapitelId: Zielkapitel (Pflicht)
+    /// - referenzDokId + position ("before"/"after"): Position relativ zu einem anderen Dokument
+    /// - Wenn keine Referenz: ans Ende des Zielkapitels
+    /// </summary>
+    public async Task VerschiebenAsync(int dokumentId, int neuerKapitelId,
+        int? referenzDokId, string? position, int benutzerId)
+    {
         var d = await _db.Dokumente.FindAsync(dokumentId) ?? throw new KeyNotFoundException();
         var zielExistiert = await _db.Kapitel.AnyAsync(k => k.Id == neuerKapitelId);
         if (!zielExistiert) throw new InvalidOperationException("Zielkapitel existiert nicht.");
-        if (d.KapitelId == neuerKapitelId) return;
 
         var altesKapitelId = d.KapitelId;
+
+        // Geschwister im Zielkapitel ohne den verschobenen Knoten, in aktueller Reihenfolge
+        var geschwister = await _db.Dokumente
+            .Where(x => x.KapitelId == neuerKapitelId && x.Id != dokumentId && !x.Geloescht)
+            .OrderBy(x => x.Sortierung).ThenBy(x => x.Titel)
+            .ToListAsync();
+
+        // Index bestimmen
+        int neuerIndex;
+        if (referenzDokId.HasValue && (position == "before" || position == "after"))
+        {
+            var refIdx = geschwister.FindIndex(x => x.Id == referenzDokId.Value);
+            if (refIdx < 0) neuerIndex = geschwister.Count;
+            else neuerIndex = position == "before" ? refIdx : refIdx + 1;
+        }
+        else
+        {
+            neuerIndex = geschwister.Count; // ans Ende
+        }
+        if (neuerIndex < 0) neuerIndex = 0;
+        if (neuerIndex > geschwister.Count) neuerIndex = geschwister.Count;
+
+        // KapitelId aktualisieren
         d.KapitelId = neuerKapitelId;
         d.GeaendertAm = DateTime.UtcNow;
         d.GeaendertVonId = benutzerId;
+
+        // Geschwister mit dem verschobenen Knoten kombinieren und Sortierung neu vergeben
+        geschwister.Insert(neuerIndex, d);
+        for (int i = 0; i < geschwister.Count; i++)
+        {
+            if (geschwister[i].Sortierung != i)
+            {
+                geschwister[i].Sortierung = i;
+                geschwister[i].GeaendertAm = DateTime.UtcNow;
+            }
+        }
+
+        // Wenn das Kapitel sich geändert hat: alten Geschwister-Stack tighten
+        if (altesKapitelId != neuerKapitelId)
+        {
+            var alteGeschwister = await _db.Dokumente
+                .Where(x => x.KapitelId == altesKapitelId && x.Id != dokumentId && !x.Geloescht)
+                .OrderBy(x => x.Sortierung).ThenBy(x => x.Titel)
+                .ToListAsync();
+            for (int i = 0; i < alteGeschwister.Count; i++)
+            {
+                if (alteGeschwister[i].Sortierung != i)
+                {
+                    alteGeschwister[i].Sortierung = i;
+                    alteGeschwister[i].GeaendertAm = DateTime.UtcNow;
+                }
+            }
+        }
+
         await _db.SaveChangesAsync();
 
+        var beschreibung = altesKapitelId == neuerKapitelId
+            ? $"Reihenfolge im Kapitel #{neuerKapitelId} geändert (Position {neuerIndex})"
+            : $"Per Drag-and-Drop in Kapitel #{neuerKapitelId} verschoben (vorher #{altesKapitelId}, Position {neuerIndex})";
         await _audit.LogAsync(AuditTyp.DokumentBearbeitet, benutzerId, dokumentId: dokumentId,
-            beschreibung: $"Per Drag-and-Drop in Kapitel #{neuerKapitelId} verschoben (vorher #{altesKapitelId})");
+            beschreibung: beschreibung);
     }
 
     /// <summary>

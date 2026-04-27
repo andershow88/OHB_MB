@@ -91,9 +91,8 @@
             @foreach (var d in Model.Dokumente)
             {
                 <li class="tree-node tree-doc-node" data-dokument-id="@d.Id" data-kapitel-id-of-doc="@Model.Id">
-                    <div class="d-flex align-items-center gap-2 tree-row tree-doc-row"
-                         @(istEditor ? "draggable=true" : "")
-                         style="padding:.32rem .5rem; padding-left:@((Model.Tiefe + 1) * 28 + 4)px; border-radius:var(--mc-radius-sm); margin-bottom:1px; @(istEditor ? "cursor:grab;" : "")">
+                    <div class="d-flex align-items-center gap-2 tree-row tree-doc-row @(istEditor ? "is-doc-draggable" : "")"
+                         style="padding:.32rem .5rem; padding-left:@((Model.Tiefe + 1) * 28 + 4)px; border-radius:var(--mc-radius-sm); margin-bottom:1px;">
                         @if (istEditor)
                         {
                             <span class="tree-grip tree-grip-visible" title="Dokument verschieben">

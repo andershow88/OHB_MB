@@ -33,6 +33,9 @@ public class Dokument
 
     public int AktuelleVersion { get; set; } = 1;
 
+    /// <summary>Sortierung innerhalb des Kapitels (Drag-and-Drop-Reihenfolge).</summary>
+    public int Sortierung { get; set; }
+
     public bool Archiviert { get; set; }
     public DateTime? ArchiviertAm { get; set; }
 

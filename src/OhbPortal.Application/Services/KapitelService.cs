@@ -35,7 +35,7 @@ public class KapitelService : IKapitelService
 
         var dokRows = await _db.Dokumente
             .Where(d => !d.Geloescht)
-            .OrderBy(d => d.Titel)
+            .OrderBy(d => d.Sortierung).ThenBy(d => d.Titel)
             .Select(d => new { d.Id, d.Titel, d.KapitelId, d.Status, d.Archiviert })
             .ToListAsync();
 

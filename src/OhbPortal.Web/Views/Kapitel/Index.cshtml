@@ -469,6 +469,7 @@
             root.innerHTML = html;
             applyExpandedState();
             updateToggleButtonLabels();
+            if (window.applyTreeDnD) window.applyTreeDnD();
             if (window.initTreeDnD) window.initTreeDnD();
         } catch (ex) {
             if (window.mcToast) mcToast('Aktualisierung fehlgeschlagen — Seite wird neu geladen.', 'danger');
@@ -492,6 +493,16 @@
         (function () {
             var dragState = null;  // { type, id, kapitelIdOfDoc?, row }
 
+            // Doc-Rows als draggable markieren — programmatisch statt via Razor
+            // (zuverlässiger Cross-Browser, läuft auch nach Soft-Reload)
+            function applyDraggableToDocRows() {
+                document.querySelectorAll('.is-doc-draggable').forEach(function (row) {
+                    row.setAttribute('draggable', 'true');
+                    row.style.cursor = 'grab';
+                });
+            }
+            applyDraggableToDocRows();
+
             function clearTargets() {
                 document.querySelectorAll('.tree-row').forEach(function (r) {
                     r.classList.remove('dnd-target-above', 'dnd-target-below', 'dnd-target-inside');
@@ -502,7 +513,6 @@
                 return el ? el.value : null;
             }
 
-            // Hilfsfunktion: aus einer Row bestimmen, ob sie Doc oder Chapter ist
             function rowContext(row) {
                 if (!row) return null;
                 var isDoc = row.classList.contains('tree-doc-row');
@@ -591,14 +601,23 @@
 
                 clearTargets();
 
+                var rect = row.getBoundingClientRect();
+                var posY = e.clientY - rect.top;
+                var rowH = rect.height;
+
                 if (dragState.type === 'dokument') {
-                    row.classList.add('dnd-target-inside');
+                    if (ctx.kind === 'doc') {
+                        // Doc auf Doc: above/below für Reihenfolge
+                        if (rowH * 0.5 > posY) row.classList.add('dnd-target-above');
+                        else row.classList.add('dnd-target-below');
+                    } else {
+                        // Doc auf Kapitel: ans Ende
+                        row.classList.add('dnd-target-inside');
+                    }
                 } else {
-                    var rect = row.getBoundingClientRect();
-                    var y = e.clientY - rect.top;
-                    var h = rect.height;
-                    if (y < h * 0.28) row.classList.add('dnd-target-above');
-                    else if (y > h * 0.72) row.classList.add('dnd-target-below');
+                    // Kapitel-Drag
+                    if (rowH * 0.28 > posY) row.classList.add('dnd-target-above');
+                    else if (posY > rowH * 0.72) row.classList.add('dnd-target-below');
                     else row.classList.add('dnd-target-inside');
                 }
             });
@@ -644,20 +663,31 @@
                     fd.append('zielId', String(ctx.kapitelId));
                     fd.append('position', position);
                 } else {
-                    // Doc-Verschieben — Ziel-Kapitel ermitteln
+                    // Doc-Verschieben — Ziel-Kapitel + optionale Position relativ zu Referenz-Doc
                     var zielKapitelId;
+                    var referenzDokId = null;
+                    var docPosition = null;
                     if (ctx.kind === 'kapitel') {
                         zielKapitelId = ctx.kapitelId;
                     } else {
-                        // Drop auf einer Doc-Zeile -> Doc landet im Kapitel dieses Dokuments
+                        // Drop auf einer Doc-Zeile -> Doc landet im Kapitel dieses Dokuments,
+                        // an der Position oberhalb/unterhalb des Referenz-Docs.
                         zielKapitelId = ctx.kapitelIdOfDoc;
+                        referenzDokId = ctx.docId;
+                        docPosition = row.classList.contains('dnd-target-above') ? 'before' : 'after';
                     }
-                    if (!zielKapitelId || zielKapitelId === dragState.kapitelIdOfDoc) {
+                    if (!zielKapitelId) { clearTargets(); dragState = null; return; }
+                    // Reihenfolge im selben Kapitel ist OK; "Move ans Ende" desselben Kapitels ohne Referenz: no-op
+                    if (zielKapitelId === dragState.kapitelIdOfDoc && !referenzDokId) {
                         clearTargets(); dragState = null; return;
                     }
                     url = '/Dokumente/Verschieben';
                     fd.append('id', String(dragState.id));
                     fd.append('zielKapitelId', String(zielKapitelId));
+                    if (referenzDokId !== null) {
+                        fd.append('referenzDokId', String(referenzDokId));
+                        fd.append('position', docPosition);
+                    }
                 }
 
                 clearTargets();
@@ -675,7 +705,8 @@
                     });
             });
 
-            // Soft-Reload braucht kein Re-Binding mehr (Delegation)
+            // Public Hooks für reloadTree
+            window.applyTreeDnD = applyDraggableToDocRows;
             window.initTreeDnD = function () { /* delegated, no-op */ };
         })();
         </text>
